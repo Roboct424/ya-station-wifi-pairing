@@ -19,3 +19,9 @@ pair_sound.wav
 # system
 .DS_Store
 Thumbs.db
+
+# сборки
+dist/
+.build_exe/
+*.spec
+

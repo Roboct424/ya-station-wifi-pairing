@@ -6,29 +6,6 @@
 
 Всё ниже проверено на Station Mini 2 (`YNDX-00020`).
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as Пользователь
-    participant A as Приложение
-    participant C as Облако
-    participant S as Колонка
-
-    U->>A: выбирает колонку, вводит Wi-Fi
-    A->>C: запрос настройки (device_id)
-    C-->>A: CipherText = {ciphertext, M, C}
-    Note over A: приложение только пересылает,<br/>ключей у него нет
-    A->>S: BLE write  connect
-    S->>S: keymaster (TEE) расшифровка
-    alt конверт валиден
-        S-->>A: status 101 → 102 → 104 → 109
-        S->>S: подключение к Wi-Fi
-    else мусор
-        S-->>A: status 1 + голосом «что-то пошло не так»
-    end
-```
-
-
 ---
 
 ## 1. Реклама и GATT
@@ -155,7 +132,6 @@ sequenceDiagram
               (SSID/пароль)       («что-то пошло не так»)
 ```
 
-
 Размеры фиксированы: `C` — ровно блок RSA-2048, то есть схема гибридная:
 
 * `C` — асимметричная часть (шифруется на ключ конкретной колонки);
@@ -188,22 +164,6 @@ setup_endpoint.cpp:112         Failed to decrypt credentials: Cannot decrypt ble
 ---
 
 ## 6. Что из этого следует
-
-```mermaid
-flowchart TD
-    Q["нужно подключить колонку к Wi-Fi<br/>без приложения и серверов"] --> BLE{"BLE?"}
-    BLE -->|"нужен ключ"| K["ключ в TEE<br/>не экспортируется"]
-    K --> R{"есть ранее<br/>перехваченный конверт?"}
-    R -->|"да"| REPLAY["можно повторить<br/>только те же креды<br/>и только это устройство"]
-    R -->|"нет"| NO["тупик"]
-    BLE -->|"локально нельзя"| SND["звуковой канал"]
-    SND --> OK["работает офлайн<br/>любые креды<br/>любое устройство"]
-
-    style OK fill:#1f2937,stroke:#6ee787,color:#e8ecf1
-    style NO fill:#3b1f1f,stroke:#a33,color:#e8ecf1
-    style REPLAY fill:#2b2a1f,stroke:#ffb86b,color:#e8ecf1
-```
-
 
 | Возможность | Итог |
 |---|---|

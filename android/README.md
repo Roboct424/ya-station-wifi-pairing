@@ -19,21 +19,6 @@ powershell -File build_apk.ps1
 
 Как это работает без SDK и Gradle:
 
-```mermaid
-flowchart LR
-    M["AndroidManifest.xml"] --> A["aapt2 link"]
-    H["tools/sound_code.html"] --> A
-    A --> BASE["base.apk<br/>манифест + ассеты"]
-    J["MainActivity.java"] --> E["ecj<br/>(javac-замена)"]
-    E --> D8["d8 / r8 1.6.84"]
-    D8 --> DEX["classes.dex"]
-    DEX --> BASE
-    BASE --> S["apksig<br/>подпись v1+v2"]
-    S --> APK["SoundCode.apk"]
-
-    style APK fill:#1f2937,stroke:#6ee787,color:#e8ecf1
-```
-
 Почему именно такие версии:
 
 | Инструмент | Почему |
