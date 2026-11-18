@@ -71,7 +71,7 @@ sequenceDiagram
 
 | Что | Байты |
 |---|---|
-| `deviceId` | `01 00 00 00 0e` + `M00GDW300FRGBB` |
+| `deviceId` | `01 00 00 00 0e` + `M00GDW300XXXX` |
 | `wifiList` | `01 00 00 01 60` + JSON-массив |
 | статус | `00` + `{"status":101}` |
 
