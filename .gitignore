@@ -1,0 +1,21 @@
+# зависимости python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# артефакты сборки APK и инструменты
+android/build/
+android/.tools/
+android/*.pem
+android/*.keystore
+
+# сгенерированные звуки
+*.wav
+tools/*.wav
+provision.wav
+pair_sound.wav
+
+# system
+.DS_Store
+Thumbs.db

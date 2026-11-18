@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Звуковой код сопряжения — Станция</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px 14px 40px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #12151a; color: #e8ecf1;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: #8b97a8; font-size: 13px; margin-bottom: 16px; }
+  .card {
+    background: #1b2028; border: 1px solid #262d38; border-radius: 14px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  label { display: block; font-size: 12px; color: #8b97a8; margin: 10px 0 4px; }
+  input[type=text], input[type=password], select {
+    width: 100%; padding: 11px 12px; font-size: 16px;
+    background: #12161d; color: #e8ecf1;
+    border: 1px solid #2c3542; border-radius: 10px; outline: none;
+  }
+  input:focus, select:focus { border-color: #3d7eff; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 8px;
+           font-size: 13px; color: #a9b4c4; }
+  input[type=range] { width: 100%; }
+  .val { font-variant-numeric: tabular-nums; color: #a9b4c4; font-size: 13px; }
+  button {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 600;
+    border: 0; border-radius: 12px; margin-top: 10px;
+    background: #3d7eff; color: #fff;
+  }
+  button.secondary { background: #232b36; color: #cfd8e4; }
+  button.danger { background: #a33; }
+  button:disabled { opacity: .45; }
+  pre {
+    background: #0e1116; border: 1px solid #232a34; border-radius: 10px;
+    padding: 10px; font-size: 11px; line-height: 1.45; word-break: break-all;
+    color: #9fd0a0; margin: 8px 0 0; white-space: pre-wrap;
+  }
+  .hint { font-size: 12px; color: #7d8998; line-height: 1.5; margin-top: 8px; }
+  .status { font-size: 13px; color: #9fb0c4; min-height: 20px; margin-top: 8px; }
+  .ok { color: #6ee787; }
+  .warn { color: #ffb86b; }
+</style>
+</head>
+<body>
+<h1>Звуковой код сопряжения</h1>
+<div class="sub">Яндекс Станция · офлайн, без облака</div>
+
+<div class="card">
+  <label>Имя сети (SSID)</label>
+  <input id="ssid" type="text" value="YaRig" autocomplete="off" autocapitalize="none">
+
+  <label>Пароль</label>
+  <input id="pwd" type="password" value="11111111" autocomplete="off">
+  <div class="check">
+    <input id="show" type="checkbox" style="width:auto">
+    <label for="show" style="margin:0">показать пароль</label>
+  </div>
+
+  <label>Тип сети</label>
+  <select id="wtype">
+    <option value="2">2 — WPA/WPA2 (обычная)</option>
+    <option value="4">4 — скрытая сеть</option>
+    <option value="5">5 — открытая</option>
+  </select>
+
+  <label>Токен (можно любой)</label>
+  <input id="token" type="text" value="localpair0000000" autocapitalize="none">
+
+  <label>Громкость: <span class="val" id="gval">0.50</span></label>
+  <input id="gain" type="range" min="0.10" max="0.95" step="0.05" value="0.50">
+  <div class="hint">Если колонка «не расслышала» — уменьшите до 0.35–0.5.
+    Слишком громко = искажения и ошибки декодера.</div>
+</div>
+
+<div class="card">
+  <button id="play">▶ Воспроизвести</button>
+  <button id="loop" class="secondary">⟳ Повторять каждые 10 секунд</button>
+  <button id="stop" class="danger" disabled>■ Стоп</button>
+  <button id="save" class="secondary">Сохранить WAV</button>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="card">
+  <div style="font-size:12px;color:#8b97a8">Кадр</div>
+  <pre id="frame">—</pre>
+  <div class="hint">Держите телефон на расстоянии 0.3–1 м от колонки, без шума.
+    После приёма колонка «глохнет» на 5–9 секунд — это нормально.</div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- кадр ---------- */
+const lp = s => {
+  const b = new TextEncoder().encode(s);
+  if (b.length > 255) throw new Error("слишком длинное поле");
+  return [b.length, ...b];
+};
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function buildFrame(type, ssid, pwd, token) {
+  let b = [type];
+  if (type !== 5) { b = b.concat(lp(ssid)); b = b.concat(lp(pwd)); }
+  b = b.concat(lp(token));
+  const c = crc32(b) & 0xFFFF;
+  return Uint8Array.from(b.concat([c & 0xFF, (c >> 8) & 0xFF]));
+}
+
+/* ---------- Reed-Solomon GF(16) ---------- */
+const EXP = new Array(32).fill(0), LOG = new Array(16).fill(0);
+(function buildGF() {
+  let x = 1;
+  for (let i = 0; i < 15; i++) {
+    EXP[i] = x; LOG[x] = i;
+    x <<= 1; if (x & 16) x ^= 0x13;
+  }
+  for (let i = 15; i < 32; i++) EXP[i] = EXP[i - 15];
+})();
+
+const gmul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[(LOG[a] + LOG[b]) % 15];
+
+function polyMul(p, q) {
+  const r = new Array(p.length + q.length - 1).fill(0);
+  for (let i = 0; i < p.length; i++)
+    for (let j = 0; j < q.length; j++) r[i + j] ^= gmul(p[i], q[j]);
+  return r;
+}
+
+let GEN = [1];
+for (let i = 0; i < 4; i++) GEN = polyMul(GEN, [1, EXP[(i + 1) % 15]]);
+
+function rsEcc(data) {
+  const msg = data.concat([0, 0, 0, 0]);
+  for (let i = 0; i < data.length; i++) {
+    const coef = msg[i];
+    if (coef === 0) continue;
+    for (let j = 1; j < GEN.length; j++) msg[i + j] ^= gmul(GEN[j], coef);
+  }
+  return msg.slice(data.length);
+}
+
+function rsEncode(nibs) {
+  const out = [];
+  for (let i = 0; i < nibs.length; i += 11) {
+    const chunk = nibs.slice(i, i + 11);
+    out.push(...chunk, ...rsEcc(chunk));
+  }
+  return out;
+}
+
+const toNibbles = bytes => {
+  const out = [];
+  for (const b of bytes) { out.push(b >> 4); out.push(b & 0xF); }
+  return out;
+};
+
+/* ---------- последовательность тонов ---------- */
+const SR = 16000, SYMBOL = 640, BASE = 1024, STEP = 256;
+const START = [6192, 6192, 5120, 5120];
+const END = new Array(8).fill(5632);
+
+function buildSequence(type, ssid, pwd, token, version = 0, checksum = 0) {
+  const frame = buildFrame(type, ssid, pwd, token);
+  const enc = rsEncode(toNibbles(frame));
+  const seq = START.concat([BASE + version * STEP, BASE + checksum * STEP],
+                           enc.map(n => BASE + n * STEP), END);
+  return { frame, seq };
+}
+
+/* ---------- звук ---------- */
+let ctx = null, srcNode = null, loopTimer = null, playing = false;
+
+function getCtx() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  return ctx;
+}
+
+function makeBuffer(freqs, gain) {
+  const c = getCtx();
+  const sr = c.sampleRate;
+  const per = Math.round(sr * 0.04);
+  const buf = c.createBuffer(1, per * freqs.length, sr);
+  const d = buf.getChannelData(0);
+  let n = 0;
+  for (const f of freqs) {
+    for (let i = 0; i < per; i++, n++) {
+      d[n] = Math.sin(2 * Math.PI * f * i / sr) * gain;
+    }
+  }
+  return buf;
+}
+
+function currentParams() {
+  const ssid = document.getElementById("ssid").value.trim();
+  const pwd = document.getElementById("pwd").value;
+  const type = parseInt(document.getElementById("wtype").value, 10);
+  const token = document.getElementById("token").value.trim() || "localpair0000000";
+  const gain = parseFloat(document.getElementById("gain").value);
+  return { ssid, pwd, type, token, gain };
+}
+
+function regenerate(show) {
+  const p = currentParams();
+  const { frame, seq } = buildSequence(p.type, p.ssid, p.pwd, p.token);
+  document.getElementById("frame").textContent =
+    frame.length + " байт · " + (seq.length * 0.04).toFixed(2) + " с\n" +
+    Array.from(frame).map(b => b.toString(16).padStart(2, "0")).join("");
+  if (show) setStatus("кадр собран");
+  return { ...p, frame, seq };
+}
+
+function setStatus(t, cls) {
+  const el = document.getElementById("status");
+  el.textContent = t;
+  el.className = "status" + (cls ? " " + cls : "");
+}
+
+function playOnce() {
+  const p = regenerate(false);
+  const c = getCtx();
+  if (c.state === "suspended") c.resume();
+  const buf = makeBuffer(p.seq, p.gain);
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(c.destination);
+  src.start();
+  src.onended = () => { if (!loopTimer) setStatus("проиграно"); };
+  srcNode = src;
+  setStatus("играю… (громкость " + p.gain.toFixed(2) + ")");
+}
+
+function startLoop() {
+  if (playing) return;
+  playing = true;
+  document.getElementById("stop").disabled = false;
+  document.getElementById("play").disabled = true;
+  document.getElementById("loop").disabled = true;
+  const tick = () => {
+    if (!playing) return;
+    playOnce();
+    setStatus("играю… повтор каждые 10 с (громкость " +
+              parseFloat(document.getElementById("gain").value).toFixed(2) + ")");
+    loopTimer = setTimeout(tick, 10000);
+  };
+  tick();
+}
+
+function stopAll() {
+  playing = false;
+  if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
+  if (srcNode) { try { srcNode.stop(); } catch (e) {} srcNode = null; }
+  document.getElementById("stop").disabled = true;
+  document.getElementById("play").disabled = false;
+  document.getElementById("loop").disabled = false;
+  setStatus("остановлено");
+}
+
+/* ---------- WAV ---------- */
+function saveWav() {
+  const p = regenerate(false);
+  const per = SYMBOL;
+  const total = per * p.seq.length;
+  const data = new Int16Array(total);
+  let n = 0;
+  for (const f of p.seq) {
+    for (let i = 0; i < per; i++, n++) {
+      data[n] = Math.max(-32767, Math.min(32767,
+        Math.round(Math.sin(2 * Math.PI * f * i / SR) * 32767 * p.gain)));
+    }
+  }
+  const buf = new ArrayBuffer(44 + data.length * 2);
+  const v = new DataView(buf);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + data.length * 2, true); str(8, "WAVE");
+  str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, "data"); v.setUint32(40, data.length * 2, true);
+  new Uint8Array(buf, 44).set(new Uint8Array(data.buffer));
+  const blob = new Blob([buf], { type: "audio/wav" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "pair-" + (p.ssid || "wifi") + ".wav";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  setStatus("WAV сохранён");
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("play").onclick = () => { regenerate(false); playOnce(); };
+document.getElementById("loop").onclick = startLoop;
+document.getElementById("stop").onclick = stopAll;
+document.getElementById("save").onclick = saveWav;
+document.getElementById("gain").oninput = e => {
+  document.getElementById("gval").textContent = parseFloat(e.target.value).toFixed(2);
+};
+document.getElementById("show").onchange = e => {
+  document.getElementById("pwd").type = e.target.checked ? "text" : "password";
+};
+["ssid", "pwd", "wtype", "token"].forEach(id =>
+  document.getElementById(id).addEventListener("input", () => regenerate(false)));
+
+regenerate(false);
+</script>
+</body>
+</html>
