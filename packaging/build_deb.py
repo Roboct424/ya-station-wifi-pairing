@@ -15,7 +15,7 @@ import tarfile
 import time
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 PKG = "ya-station-wifi-pairing"
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
@@ -28,12 +28,18 @@ FILES = [
     "provision_gui.py",
     "test_frame.py",
     "sound_code.html",
+    "ap_wifi.py",
+    "station_pairing.py",
+    "station_pairing_gui.py",
+    "test_ap_wifi.py",
 ]
 
 WRAPPERS = {
     "ya-station-pair": "pair_by_sound.py",
     "ya-station-provision": "provision.py",
     "ya-station-gui": "provision_gui.py",
+    "ya-station-pairing": "station_pairing.py",
+    "ya-station-pairing-gui": "station_pairing_gui.py",
 }
 
 DESKTOP = """[Desktop Entry]
@@ -42,7 +48,7 @@ Name=Station Wi-Fi Pairing
 Name[ru]=Сопряжение Станции с Wi-Fi
 Comment=Send Wi-Fi credentials to a Yandex Station over sound
 Comment[ru]=Передать Wi-Fi колонке Яндекс Станция звуком
-Exec=ya-station-gui
+Exec=ya-station-pairing-gui
 Terminal=false
 Categories=Utility;Network;
 """
@@ -52,12 +58,13 @@ Version: {VERSION}
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.8), python3-numpy, python3-sounddevice
+Depends: python3 (>= 3.8), python3-numpy, python3-sounddevice, python3-cryptography
 Maintainer: Roboct424 <konstantinponomarev0808090683@gmail.com>
 Homepage: https://github.com/Roboct424/ya-station-wifi-pairing
-Description: Wi-Fi pairing for Yandex Station over sound
- Send SSID and password to a Yandex Station acoustically: no app,
- no cloud, no root. Includes CLI, auto-provisioning and a GUI.
+Description: Wi-Fi pairing for Yandex Station: sound + AP HTTP
+ Send SSID and password to a Yandex Station acoustically or over the
+ device's local AP (RSA/PKCS1): no app, no cloud, no root.
+ Includes CLI, auto-provisioning, GUI and an Ethernet mode.
 """
 
 

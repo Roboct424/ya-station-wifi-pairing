@@ -1,0 +1,6 @@
+#!/bin/sh
+# Запуск объединённого инструмента из исходников (Linux/macOS).
+#   ./packaging/station-pairing sound --ssid Home --password secret
+#   ./packaging/station-pairing wifi  --ssid Home --password secret
+#   ./packaging/station-pairing gui
+exec python3 "$(dirname "$0")/../tools/station_pairing.py" "$@"

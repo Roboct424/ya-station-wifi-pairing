@@ -72,14 +72,31 @@ BLE-канал принимает только зашифрованный кон
 ### Быстрый старт
 
 ```bash
-pip install numpy sounddevice
+pip install numpy sounddevice cryptography
 
-# один раз
-python tools/pair_by_sound.py --ssid "MyWiFi" --password "secret"
+# звук
+python tools/station_pairing.py sound --ssid "MyWiFi" --password "secret"
 
-# играть, пока колонка не появится в сети
-python tools/provision.py --ssid "MyWiFi" --password "secret"
+# Wi-Fi через AP HTTP (ноутбук подключён к Yandex-Hub)
+python tools/station_pairing.py wifi --ssid "MyWiFi" --password "secret"
+
+# проводной режим (Ethernet, без Wi-Fi-кредов)
+python tools/station_pairing.py wifi --wired
+
+# GUI: две вкладки — «Звук» и «Wi-Fi (AP)»
+python tools/station_pairing.py gui
 ```
+
+Готовые сборки:
+
+* Windows: `dist/StationPairing.exe` (CLI) и
+  `dist/StationPairingGUI.exe` (GUI);
+* Linux/macOS: `bash packaging/build_unix.sh` (PyInstaller);
+* Debian/Ubuntu: `python packaging/build_deb.py` (пакет ставит
+  `ya-station-pairing` и `ya-station-pairing-gui`).
+
+Старые раздельные команды (`pair_by_sound.py`, `provision.py`,
+`ap_wifi.py`) остаются для совместимости.
 
 Колонка должна быть в режиме настройки (новая или сброшенная).
 Подробно: [`docs/03-practice.md`](docs/03-practice.md).
@@ -99,12 +116,13 @@ python tools/provision.py --ssid "MyWiFi" --password "secret"
 
 ### Релизы
 
-* `SoundCode.apk` — Android-приложение
-* `StationWiFiPairing.exe` — Windows (GUI, звук, один файл)
-* `StationAPRegister.exe` — Windows CLI: Wi-Fi через AP HTTP
-* `StationAPRegisterGUI.exe` — Windows GUI: Wi-Fi через AP HTTP
-* `ya-station-wifi-pairing_1.0.0_all.deb` — Debian/Ubuntu пакет
-* `ya-station-wifi-pairing-1.0.0.tar.gz` — исходники для Linux/macOS
+* `SoundCode.apk` — Android-приложение (звук)
+* `StationPairing.exe` — Windows: звук + AP HTTP (CLI, один файл)
+* `StationPairingGUI.exe` — Windows: звук + AP HTTP (GUI, один файл)
+* `StationWiFiPairing.exe` — старая Windows-сборка (только звук)
+* `ya-station-wifi-pairing_1.1.0_all.deb` — Debian/Ubuntu пакет
+* `ya-station-wifi-pairing-1.1.0.tar.gz` — исходники для Linux/macOS
+  (сборка: `bash packaging/build_unix.sh`)
 
 ### Проверка
 
@@ -199,14 +217,31 @@ All checks and the GATT map: [`docs/02-ble-protocol.md`](docs/02-ble-protocol.md
 ### Quick start
 
 ```bash
-pip install numpy sounddevice
+pip install numpy sounddevice cryptography
 
-# once
-python tools/pair_by_sound.py --ssid "MyWiFi" --password "secret"
+# sound
+python tools/station_pairing.py sound --ssid "MyWiFi" --password "secret"
 
-# play until the station appears on the network
-python tools/provision.py --ssid "MyWiFi" --password "secret"
+# Wi-Fi over AP HTTP (laptop joined to Yandex-Hub)
+python tools/station_pairing.py wifi --ssid "MyWiFi" --password "secret"
+
+# wired mode (Ethernet, no Wi-Fi credentials)
+python tools/station_pairing.py wifi --wired
+
+# GUI with two tabs: Sound and Wi-Fi (AP)
+python tools/station_pairing.py gui
 ```
+
+Prebuilt binaries:
+
+* Windows: `dist/StationPairing.exe` (CLI) and
+  `dist/StationPairingGUI.exe` (GUI);
+* Linux/macOS: `bash packaging/build_unix.sh` (PyInstaller);
+* Debian/Ubuntu: `python packaging/build_deb.py` (installs
+  `ya-station-pairing` and `ya-station-pairing-gui`).
+
+The old separate commands (`pair_by_sound.py`, `provision.py`,
+`ap_wifi.py`) remain for compatibility.
 
 The station must be in setup mode (new or factory-reset).
 Details: [`docs/03-practice.md`](docs/03-practice.md).
@@ -226,12 +261,13 @@ Details: [`docs/03-practice.md`](docs/03-practice.md).
 
 ### Releases
 
-* `SoundCode.apk` — Android application
-* `StationWiFiPairing.exe` — Windows (GUI, sound, single file)
-* `StationAPRegister.exe` — Windows CLI: Wi-Fi over AP HTTP
-* `StationAPRegisterGUI.exe` — Windows GUI: Wi-Fi over AP HTTP
-* `ya-station-wifi-pairing_1.0.0_all.deb` — Debian/Ubuntu package
-* `ya-station-wifi-pairing-1.0.0.tar.gz` — sources for Linux/macOS
+* `SoundCode.apk` — Android application (sound)
+* `StationPairing.exe` — Windows: sound + AP HTTP (CLI, single file)
+* `StationPairingGUI.exe` — Windows: sound + AP HTTP (GUI, single file)
+* `StationWiFiPairing.exe` — older Windows build (sound only)
+* `ya-station-wifi-pairing_1.1.0_all.deb` — Debian/Ubuntu package
+* `ya-station-wifi-pairing-1.1.0.tar.gz` — sources for Linux/macOS
+  (build: `bash packaging/build_unix.sh`)
 
 ### Self-test
 

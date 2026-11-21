@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sound_protocol as sp  # noqa: E402
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Звуковой код сопряжения Яндекс Станции")
     ap.add_argument("--ssid", required=True, help="имя Wi-Fi сети")
     ap.add_argument("--password", default="", help="пароль (пусто для открытой)")
@@ -35,7 +35,7 @@ def main() -> int:
     ap.add_argument("--out", default="pair_sound.wav", help="куда сохранить WAV")
     ap.add_argument("--device", default=None, help="индекс устройства вывода")
     ap.add_argument("--dry-run", action="store_true", help="только показать кадр")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
 
     frame = sp.build_frame(a.type, a.ssid, a.password, a.token)
     path = sp.make_wav(frame, a.out, gain=a.gain)

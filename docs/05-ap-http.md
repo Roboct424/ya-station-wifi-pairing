@@ -134,9 +134,10 @@ req = urllib.request.Request(
 print(urllib.request.urlopen(req, timeout=30).read().decode())
 ```
 
-Готовый CLI: [`../tools/ap_wifi.py`](../tools/ap_wifi.py), GUI:
-[`../tools/ap_wifi_gui.py`](../tools/ap_wifi_gui.py), тест:
-[`../tools/test_ap_wifi.py`](../tools/test_ap_wifi.py).
+Готовый CLI: [`../tools/station_pairing.py`](../tools/station_pairing.py)
+(`wifi ...`), отдельный [`../tools/ap_wifi.py`](../tools/ap_wifi.py),
+GUI: [`../tools/station_pairing_gui.py`](../tools/station_pairing_gui.py),
+тест: [`../tools/test_ap_wifi.py`](../tools/test_ap_wifi.py).
 
 ## Отличия от звука и BLE
 
