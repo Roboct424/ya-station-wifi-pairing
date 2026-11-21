@@ -217,3 +217,32 @@ setup_endpoint.cpp:112         Failed to decrypt credentials: Cannot decrypt ble
 Важно: в отличие от Mini 2, Хаб **сам отдаёт публичный ключ** через `/info`.
 Если `C` в BLE-конверте шифруется этим ключом, оффлайн-BLE для Хаба может
 быть возможен — это открытый вопрос, а не доказанный обход.
+
+### 8.1 Хаб: бинарный заголовок и Keymaster (проверено)
+
+На `S006NQ20034ZFW` (BLE-адрес `3C:0B:4F:15:40:6F`, GATT-сервис
+`664578b6-...`):
+
+- запись в `connect` **без** заголовка (голый JSON) → GATT
+  `Application-specific Error 0x80`, в BlueZ `Non-OK writing`;
+- с заголовком `[01][0000][len BE]`:
+  - `{}` → `InvalidSetupCredentialsFormat` (`Unknown setup credentials value`);
+  - `{"ciphertext":"AAAA"}` → `BadJson.SetupCredentials`;
+  - `{"ciphertext","M","C"}` → `Got encrypted setup credentials`,
+    затем `setup_endpoint.cpp:101 Failed to decrypt credentials:
+    Keymaster error -1000` (для `C` из нулей — ожидаемо).
+- `keymaster_proxy_app show-key` совпадает с `crypto_key` из `/info`,
+  то есть `C` можно шифровать этим публичным ключом.
+
+Итог: формат записи и точка входа найдены. Осталось выяснить, что именно
+лежит внутри `C` (ключ сессии или JSON кредов) и как считается `M`.
+Следующие шаги: по одному кандидату на сессию, с чистым логом
+`yiod.log` (`Got encrypted` / `Failed to decrypt` / `M != M2`):
+
+1. `C = RSA(32-байтный ключ)`, `M`/`ciphertext` — случайные;
+2. `C = RSA(JSON кредов)` (например, `{"ssid":"Home","password":"..."}`);
+3. если появляется `M != M2` — перебор схемы `M` (HMAC-SHA256 от
+   `ciphertext`, от `C`, от ключа).
+
+Windows-стек BLE рвёт линк на длинных записях; помогает
+`winrt={"use_cached_services": False}` и ретраи (см. раздел 7).
