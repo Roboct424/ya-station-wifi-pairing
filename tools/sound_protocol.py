@@ -152,10 +152,19 @@ def to_nibbles(data: bytes) -> list[int]:
 
 
 # ------------------------------------------------------------ тоны --------
-def build_tones(frame: bytes, version: int = 0, checksum: int = 0) -> list[int]:
-    """Полная последовательность частот (по 40 мс на символ)."""
+def build_tones(frame: bytes, version: int = 0, checksum: int = 0,
+                preroll: int = 0) -> list[int]:
+    """Полная последовательность частот (по 40 мс на символ).
+
+    ``preroll`` (0..4) — сколько раз повторить преамбулу перед кадром,
+    чтобы «разбудить» декодер колонки. 0 — как раньше.
+    """
     encoded = rs_encode(to_nibbles(frame))
-    tones = list(PREAMBLE)
+    preroll = max(0, min(4, int(preroll)))
+    tones: list[int] = []
+    for _ in range(preroll):
+        tones += PREAMBLE
+    tones += PREAMBLE
     tones += [BASE + version * STEP, BASE + checksum * STEP]
     tones += [BASE + n * STEP for n in encoded]
     tones += END
@@ -168,13 +177,14 @@ def tone_to_nibble(freq: int) -> int:
 
 # ------------------------------------------------------------- WAV --------
 def make_wav(frame: bytes, out: str | Path, gain: float = DEFAULT_GAIN,
-             version: int = 0, checksum: int = 0) -> Path:
+             version: int = 0, checksum: int = 0,
+             preroll: int = 0) -> Path:
     """Пишет WAV 16 кГц / 16 бит / моно."""
     import numpy as np
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    tones = build_tones(frame, version, checksum)
+    tones = build_tones(frame, version, checksum, preroll)
 
     samples = []
     t = np.arange(SYMBOL_SAMPLES)
@@ -201,8 +211,9 @@ def read_wav(path: str | Path):
 
 
 # --------------------------------------------------------- удобства -------
-def describe(frame: bytes, gain: float = DEFAULT_GAIN) -> dict:
-    tones = build_tones(frame)
+def describe(frame: bytes, gain: float = DEFAULT_GAIN,
+             preroll: int = 0) -> dict:
+    tones = build_tones(frame, preroll=preroll)
     return {
         "frame_hex": frame.hex(),
         "frame_bytes": len(frame),

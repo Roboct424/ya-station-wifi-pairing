@@ -23,15 +23,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyinstaller cryptography numpy sounddevice
+          python -m pip install pyinstaller cryptography numpy
 
-      - name: Install PortAudio (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+      # Звук играет системный плеер (winsound / paplay / aplay / afplay),
+      # поэтому libportaudio2 и sounddevice больше не нужны.
 
-      - name: Install PortAudio (macOS)
-        if: runner.os == 'macOS'
-        run: brew install portaudio || true
+      - name: Self-test
+        run: |
+          python tools/test_frame.py
+          python tools/test_ap_wifi.py
 
       - name: Build CLI
         run: >
@@ -47,9 +47,44 @@ jobs:
           --distpath dist --workpath build --specpath build
           tools/station_pairing_gui.py
 
+      - name: Rename Linux binaries
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          mv -f StationPairing StationPairing-linux-x86_64
+          mv -f StationPairingGUI StationPairingGUI-linux-x86_64
+          chmod +x StationPairing-*
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: StationPairing-${{ runner.os }}
           path: dist/StationPairing*
+          if-no-files-found: error
+
+  android:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch Android tools
+        run: python android/fetch_tools.py
+
+      - name: Build APK
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File android/build_apk.ps1
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoundCode-apk
+          path: android/SoundCode.apk
           if-no-files-found: error

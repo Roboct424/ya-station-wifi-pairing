@@ -16,6 +16,7 @@ from pathlib import Path
 
 import ap_wifi
 import sound_protocol as sp
+from audio_play import Player
 
 APP_TITLE = "Яндекс Станция — сопряжение"
 APP_DIR = Path(__file__).resolve().parent
@@ -31,6 +32,7 @@ class App(tk.Tk):
         self.stop_flag = False
         self.playing = False
         self.sound_frame: bytes | None = None
+        self.player = Player()
 
         self._build()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -55,6 +57,7 @@ class App(tk.Tk):
         self.s_gain = tk.DoubleVar(value=sp.DEFAULT_GAIN)
         self.s_repeat = tk.IntVar(value=3)
         self.s_gap = tk.DoubleVar(value=9.0)
+        self.s_preroll = tk.IntVar(value=0)
 
         grid = ttk.Frame(f)
         grid.pack(fill="x", **pad)
@@ -75,6 +78,9 @@ class App(tk.Tk):
         ttk.Spinbox(grid, from_=1, to=20, textvariable=self.s_repeat, width=6).grid(row=5, column=1, sticky="w", padx=6)
         ttk.Label(grid, text="Пауза, с:").grid(row=6, column=0, sticky="w")
         ttk.Spinbox(grid, from_=1, to=60, increment=1, textvariable=self.s_gap, width=6).grid(row=6, column=1, sticky="w", padx=6)
+        ttk.Label(grid, text="Предстарт (0–4):").grid(row=7, column=0, sticky="w")
+        ttk.Spinbox(grid, from_=0, to=4, textvariable=self.s_preroll, width=6).grid(row=7, column=1, sticky="w", padx=6)
+        ttk.Label(grid, text="повтор преамбулы для «пробуждения» декодера").grid(row=7, column=1, sticky="e")
         grid.columnconfigure(1, weight=1)
 
         btns = ttk.Frame(f)
@@ -146,8 +152,11 @@ class App(tk.Tk):
             frame = sp.build_frame(
                 int(self.s_type.get()), ssid, self.s_pass.get(), self.s_token.get() or sp.DEFAULT_TOKEN
             )
-            path = sp.make_wav(frame, WAV_PATH, gain=float(self.s_gain.get()))
-            info = sp.describe(frame, float(self.s_gain.get()))
+            preroll = max(0, min(4, int(self.s_preroll.get())))
+            path = sp.make_wav(
+                frame, WAV_PATH, gain=float(self.s_gain.get()), preroll=preroll
+            )
+            info = sp.describe(frame, float(self.s_gain.get()), preroll=preroll)
             self.sound_frame = frame
             self.write(f"звук: {path}")
             self.write(
@@ -172,21 +181,13 @@ class App(tk.Tk):
 
     def _play_loop(self) -> None:
         try:
-            import sounddevice as sd
-        except Exception as exc:  # noqa: BLE001
-            self.write(f"нет sounddevice: {exc}")
-            self.playing = False
-            return
-        try:
-            data, sr = sp.read_wav(WAV_PATH)
             repeat = max(1, int(self.s_repeat.get()))
             gap = max(0.0, float(self.s_gap.get()))
             for i in range(repeat):
                 if self.stop_flag:
                     break
                 self.write(f"проигрывание {i + 1}/{repeat}…")
-                sd.play(data, sr)
-                sd.wait()
+                self.player.play(WAV_PATH)
                 if i + 1 < repeat and not self.stop_flag:
                     end = time.time() + gap
                     while time.time() < end and not self.stop_flag:
@@ -195,16 +196,11 @@ class App(tk.Tk):
             self.write(f"ошибка воспроизведения: {exc}")
         finally:
             self.playing = False
-            self.write("звук: готово")
+            self.write(f"звук: готово (плеер: {self.player.backend})")
 
     def on_stop_sound(self) -> None:
         self.stop_flag = True
-        try:
-            import sounddevice as sd
-
-            sd.stop()
-        except Exception:  # noqa: BLE001
-            pass
+        self.player.stop()
         self.write("звук: остановлен")
 
     # ---------------------------------------------------------------- wifi
@@ -251,12 +247,7 @@ class App(tk.Tk):
     # --------------------------------------------------------------- close
     def _on_close(self) -> None:
         self.stop_flag = True
-        try:
-            import sounddevice as sd
-
-            sd.stop()
-        except Exception:  # noqa: BLE001
-            pass
+        self.player.stop()
         self.destroy()
 
 

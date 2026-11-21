@@ -29,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
                     choices=(2, 4, 5), help="2=WPA, 4=скрытая, 5=открытая")
     ap.add_argument("--gain", type=float, default=sp.DEFAULT_GAIN,
                     help="амплитуда 0.1..0.9 (0.5 — рабочая)")
+    ap.add_argument("--preroll", type=int, default=0, choices=(0, 1, 2, 3, 4),
+                    help="предстарт 0..4: сколько раз повторить преамбулу")
     ap.add_argument("--repeat", type=int, default=3, help="сколько раз проиграть")
     ap.add_argument("--gap", type=float, default=9.0,
                     help="пауза между повторами, с (колонка глохнет на 5-9 с)")
@@ -38,8 +40,8 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
 
     frame = sp.build_frame(a.type, a.ssid, a.password, a.token)
-    path = sp.make_wav(frame, a.out, gain=a.gain)
-    info = sp.describe(frame, a.gain)
+    path = sp.make_wav(frame, a.out, gain=a.gain, preroll=a.preroll)
+    info = sp.describe(frame, a.gain, preroll=a.preroll)
 
     print(f"SSID     : {a.ssid!r}  тип={a.type}")
     print(f"кадр     : {frame.hex()}")
@@ -51,22 +53,20 @@ def main(argv: list[str] | None = None) -> int:
     if a.dry_run:
         return 0
 
-    try:
-        import sounddevice as sd
-    except Exception as exc:  # pragma: no cover
-        print(f"нет sounddevice: {exc}\nWAV сохранён, проиграйте его вручную.")
-        return 0
+    from audio_play import Player
 
-    if a.device is not None:
-        sd.default.device = (None, int(a.device))
-
-    audio, sr = sp.read_wav(path)
+    player = Player()
+    device = None if a.device is None else int(a.device)
     for i in range(a.repeat):
         print(f"проигрывание {i + 1}/{a.repeat}", flush=True)
-        sd.play(audio, sr, blocking=True)
+        try:
+            player.play(path, device=device)
+        except Exception as exc:  # pragma: no cover
+            print(f"не удалось проиграть: {exc}\nWAV сохранён: {path}")
+            return 0
         if i + 1 < a.repeat:
             time.sleep(a.gap)
-    print("готово")
+    print(f"готово (плеер: {player.backend})")
     return 0
 
 

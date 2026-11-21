@@ -72,10 +72,15 @@ BLE-канал принимает только зашифрованный кон
 ### Быстрый старт
 
 ```bash
-pip install numpy sounddevice cryptography
+pip install numpy cryptography
+# sounddevice не обязателен: на Windows звук играет winsound (stdlib),
+# на Linux/macOS — paplay / aplay / ffplay / afplay
 
 # звук
 python tools/station_pairing.py sound --ssid "MyWiFi" --password "secret"
+
+# звук с предстартом 0..4 (повтор преамбулы для «пробуждения» декодера)
+python tools/station_pairing.py sound --ssid "MyWiFi" --password "secret" --preroll 2
 
 # Wi-Fi через AP HTTP (ноутбук подключён к Yandex-Hub)
 python tools/station_pairing.py wifi --ssid "MyWiFi" --password "secret"
@@ -92,7 +97,8 @@ python tools/station_pairing.py gui
 * Windows: `dist/StationPairing.exe` (CLI) и
   `dist/StationPairingGUI.exe` (GUI);
 * Linux x86_64: `dist/StationPairing-linux-x86_64` и
-  `dist/StationPairingGUI-linux-x86_64` (для звука нужен `libportaudio2`);
+  `dist/StationPairingGUI-linux-x86_64` (звук через системный плеер,
+  `libportaudio2` не требуется);
 * macOS: `bash packaging/build_unix.sh` на Mac или артефакт из
   GitHub Actions (`.github/workflows/build.yml`);
 * Debian/Ubuntu: `python packaging/build_deb.py` (пакет ставит
@@ -117,17 +123,18 @@ CI (`.github/workflows/build.yml`) собирает Windows/Linux/macOS
 | [`docs/04-scope.md`](docs/04-scope.md) | границы проекта, безопасность, правовое |
 | [`docs/05-ap-http.md`](docs/05-ap-http.md) | Wi-Fi через AP HTTP: `/info`, RSA/PKCS1, `/connect`, Ethernet |
 | `tools/` | кодер, CLI, автопровижининг, GUI, AP HTTP, веб-версия, тесты |
-| `android/` | APK и исходники (WebView, без разрешений) |
+| `android/` | APK и исходники (WebView: звук + Wi-Fi AP, разрешение INTERNET) |
 | `examples/` | пример кадра и полная последовательность тонов |
 
 ### Релизы
 
-* `SoundCode.apk` — Android-приложение (звук)
+* `SoundCode.apk` — Android-приложение: звук + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: звук + AP HTTP (CLI, один файл)
 * `StationPairingGUI.exe` — Windows: звук + AP HTTP (GUI, один файл)
+* `StationPairing-linux-x86_64` / `StationPairingGUI-linux-x86_64` — Linux
 * `StationWiFiPairing.exe` — старая Windows-сборка (только звук)
-* `ya-station-wifi-pairing_1.1.0_all.deb` — Debian/Ubuntu пакет
-* `ya-station-wifi-pairing-1.1.0.tar.gz` — исходники для Linux/macOS
+* `ya-station-wifi-pairing_1.2.0_all.deb` — Debian/Ubuntu пакет
+* `ya-station-wifi-pairing-1.2.0.tar.gz` — исходники для Linux/macOS
   (сборка: `bash packaging/build_unix.sh`)
 
 ### Проверка
@@ -223,10 +230,15 @@ All checks and the GATT map: [`docs/02-ble-protocol.md`](docs/02-ble-protocol.md
 ### Quick start
 
 ```bash
-pip install numpy sounddevice cryptography
+pip install numpy cryptography
+# sounddevice is optional: Windows plays via winsound (stdlib),
+# Linux/macOS via paplay / aplay / ffplay / afplay
 
 # sound
 python tools/station_pairing.py sound --ssid "MyWiFi" --password "secret"
+
+# sound with preroll 0..4 (repeats the preamble to wake the decoder)
+python tools/station_pairing.py sound --ssid "MyWiFi" --password "secret" --preroll 2
 
 # Wi-Fi over AP HTTP (laptop joined to Yandex-Hub)
 python tools/station_pairing.py wifi --ssid "MyWiFi" --password "secret"
@@ -243,7 +255,8 @@ Prebuilt binaries:
 * Windows: `dist/StationPairing.exe` (CLI) and
   `dist/StationPairingGUI.exe` (GUI);
 * Linux x86_64: `dist/StationPairing-linux-x86_64` and
-  `dist/StationPairingGUI-linux-x86_64` (`libportaudio2` for sound);
+  `dist/StationPairingGUI-linux-x86_64` (sound via the system player,
+  `libportaudio2` is not required);
 * macOS: `bash packaging/build_unix.sh` on a Mac or the GitHub Actions
   artifact (`.github/workflows/build.yml`);
 * Debian/Ubuntu: `python packaging/build_deb.py` (installs
@@ -268,17 +281,18 @@ Details: [`docs/03-practice.md`](docs/03-practice.md).
 | [`docs/04-scope.md`](docs/04-scope.md) | scope, security, legal notes |
 | [`docs/05-ap-http.md`](docs/05-ap-http.md) | Wi-Fi over AP HTTP: `/info`, RSA/PKCS1, `/connect`, Ethernet |
 | `tools/` | encoder, CLI, auto-provisioning, GUI, AP HTTP, web version, tests |
-| `android/` | APK and sources (WebView, no permissions) |
+| `android/` | APK and sources (WebView: sound + Wi-Fi AP, INTERNET permission) |
 | `examples/` | sample frame and the full tone sequence |
 
 ### Releases
 
-* `SoundCode.apk` — Android application (sound)
+* `SoundCode.apk` — Android application: sound + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: sound + AP HTTP (CLI, single file)
 * `StationPairingGUI.exe` — Windows: sound + AP HTTP (GUI, single file)
+* `StationPairing-linux-x86_64` / `StationPairingGUI-linux-x86_64` — Linux
 * `StationWiFiPairing.exe` — older Windows build (sound only)
-* `ya-station-wifi-pairing_1.1.0_all.deb` — Debian/Ubuntu package
-* `ya-station-wifi-pairing-1.1.0.tar.gz` — sources for Linux/macOS
+* `ya-station-wifi-pairing_1.2.0_all.deb` — Debian/Ubuntu package
+* `ya-station-wifi-pairing-1.2.0.tar.gz` — sources for Linux/macOS
   (build: `bash packaging/build_unix.sh`)
 
 ### Self-test

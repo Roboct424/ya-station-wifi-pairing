@@ -25,7 +25,7 @@ sys.path.insert(0, str(HERE))
 import ap_wifi  # noqa: E402
 import pair_by_sound  # noqa: E402
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 USAGE = f"""Единый инструмент сопряжения Яндекс Станции (v{VERSION})
 

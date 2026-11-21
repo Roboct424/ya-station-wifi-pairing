@@ -15,7 +15,7 @@ import tarfile
 import time
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 PKG = "ya-station-wifi-pairing"
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
@@ -29,6 +29,7 @@ FILES = [
     "test_frame.py",
     "sound_code.html",
     "ap_wifi.py",
+    "audio_play.py",
     "station_pairing.py",
     "station_pairing_gui.py",
     "test_ap_wifi.py",
@@ -58,7 +59,8 @@ Version: {VERSION}
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.8), python3-numpy, python3-sounddevice, python3-cryptography
+Depends: python3 (>= 3.8), python3-numpy, python3-cryptography, python3-tk
+Recommends: pulseaudio-utils | alsa-utils
 Maintainer: Roboct424 <konstantinponomarev0808090683@gmail.com>
 Homepage: https://github.com/Roboct424/ya-station-wifi-pairing
 Description: Wi-Fi pairing for Yandex Station: sound + AP HTTP

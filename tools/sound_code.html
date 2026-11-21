@@ -48,11 +48,24 @@
   .status { font-size: 13px; color: #9fb0c4; min-height: 20px; margin-top: 8px; }
   .ok { color: #6ee787; }
   .warn { color: #ffb86b; }
+  .tabs { display: flex; gap: 8px; margin: 4px 0 14px; }
+  .tabs button {
+    flex: 1; margin-top: 0; padding: 11px; font-size: 14px;
+    background: #1b2028; color: #a9b4c4; border: 1px solid #262d38;
+  }
+  .tabs button.active { background: #3d7eff; color: #fff; border-color: #3d7eff; }
 </style>
 </head>
 <body>
 <h1>Звуковой код сопряжения</h1>
 <div class="sub">Яндекс Станция · офлайн, без облака</div>
+
+<div class="tabs">
+  <button id="tab-sound-btn" class="active">Звук</button>
+  <button id="tab-wifi-btn">Wi-Fi (AP)</button>
+</div>
+
+<div id="tab-sound">
 
 <div class="card">
   <label>Имя сети (SSID)</label>
@@ -79,6 +92,17 @@
   <input id="gain" type="range" min="0.10" max="0.95" step="0.05" value="0.50">
   <div class="hint">Если колонка «не расслышала» — уменьшите до 0.35–0.5.
     Слишком громко = искажения и ошибки декодера.</div>
+
+  <label>Предстарт (0–4)</label>
+  <select id="preroll">
+    <option value="0">0 — без предстарта</option>
+    <option value="1">1 — повторить преамбулу 1 раз</option>
+    <option value="2">2 — повторить преамбулу 2 раза</option>
+    <option value="3">3 — повторить преамбулу 3 раза</option>
+    <option value="4">4 — повторить преамбулу 4 раза</option>
+  </select>
+  <div class="hint">Предстарт помогает «разбудить» декодер, если колонка
+    просыпается не с первого кадра.</div>
 </div>
 
 <div class="card">
@@ -95,6 +119,43 @@
   <div class="hint">Держите телефон на расстоянии 0.3–1 м от колонки, без шума.
     После приёма колонка «глохнет» на 5–9 секунд — это нормально.</div>
 </div>
+
+</div><!-- tab-sound -->
+
+<div id="tab-wifi" hidden>
+  <div class="card">
+    <label>URL устройства</label>
+    <input id="wurl" type="text" value="http://192.168.43.1:8080" autocapitalize="none">
+
+    <label>SSID</label>
+    <input id="wssid" type="text" placeholder="Home" autocapitalize="none">
+
+    <label>Пароль</label>
+    <input id="wpwd" type="password" autocomplete="off">
+
+    <label>Токен (можно любой)</label>
+    <input id="wtoken" type="text" value="localpair0000000" autocapitalize="none">
+
+    <div class="check">
+      <input id="wwired" type="checkbox" style="width:auto">
+      <label for="wwired" style="margin:0">Проводной режим (Ethernet, без Wi-Fi)</label>
+    </div>
+
+    <button id="winfo" class="secondary">Проверить /info</button>
+    <button id="wconnect">Подключить</button>
+    <div class="status" id="wstatus"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:12px;color:#8b97a8">Ответ</div>
+    <pre id="wlog">—</pre>
+    <div class="hint" id="whint">
+      Подключите телефон к точке доступа устройства (Yandex-Hub), затем
+      нажмите «Проверить /info» и «Подключить». Пароль шифруется RSA/PKCS1
+      ключом из /info; токен не проверяется.
+    </div>
+  </div>
+</div><!-- tab-wifi -->
 
 <script>
 "use strict";
@@ -183,11 +244,15 @@ const SR = 16000, SYMBOL = 640, BASE = 1024, STEP = 256;
 const START = [6192, 6192, 5120, 5120];
 const END = new Array(8).fill(5632);
 
-function buildSequence(type, ssid, pwd, token, version = 0, checksum = 0) {
+function buildSequence(type, ssid, pwd, token, version = 0, checksum = 0, preroll = 0) {
   const frame = buildFrame(type, ssid, pwd, token);
   const enc = rsEncode(toNibbles(frame));
-  const seq = START.concat([BASE + version * STEP, BASE + checksum * STEP],
-                           enc.map(n => BASE + n * STEP), END);
+  const n = Math.max(0, Math.min(4, preroll | 0));
+  const pre = [];
+  for (let i = 0; i < n; i++) pre.push(...START);
+  const seq = pre.concat(START,
+                         [BASE + version * STEP, BASE + checksum * STEP],
+                         enc.map(n => BASE + n * STEP), END);
   return { frame, seq };
 }
 
@@ -220,12 +285,13 @@ function currentParams() {
   const type = parseInt(document.getElementById("wtype").value, 10);
   const token = document.getElementById("token").value.trim() || "localpair0000000";
   const gain = parseFloat(document.getElementById("gain").value);
-  return { ssid, pwd, type, token, gain };
+  const preroll = parseInt(document.getElementById("preroll").value, 10) || 0;
+  return { ssid, pwd, type, token, gain, preroll };
 }
 
 function regenerate(show) {
   const p = currentParams();
-  const { frame, seq } = buildSequence(p.type, p.ssid, p.pwd, p.token);
+  const { frame, seq } = buildSequence(p.type, p.ssid, p.pwd, p.token, 0, 0, p.preroll);
   document.getElementById("frame").textContent =
     frame.length + " байт · " + (seq.length * 0.04).toFixed(2) + " с\n" +
     Array.from(frame).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -321,8 +387,222 @@ document.getElementById("gain").oninput = e => {
 document.getElementById("show").onchange = e => {
   document.getElementById("pwd").type = e.target.checked ? "text" : "password";
 };
-["ssid", "pwd", "wtype", "token"].forEach(id =>
+["ssid", "pwd", "wtype", "token", "preroll"].forEach(id =>
   document.getElementById(id).addEventListener("input", () => regenerate(false)));
+
+/* ---------- вкладки ---------- */
+function showTab(name) {
+  document.getElementById("tab-sound").hidden = name !== "sound";
+  document.getElementById("tab-wifi").hidden = name !== "wifi";
+  document.getElementById("tab-sound-btn").classList.toggle("active", name === "sound");
+  document.getElementById("tab-wifi-btn").classList.toggle("active", name === "wifi");
+}
+document.getElementById("tab-sound-btn").onclick = () => showTab("sound");
+document.getElementById("tab-wifi-btn").onclick = () => showTab("wifi");
+
+/* ---------- Wi-Fi AP HTTP ---------- */
+const wurl = () => document.getElementById("wurl").value.trim().replace(/\/+$/, "");
+function wsetStatus(t, cls) {
+  const el = document.getElementById("wstatus");
+  el.textContent = t;
+  el.className = "status" + (cls ? " " + cls : "");
+}
+function wlog(t) { document.getElementById("wlog").textContent = t; }
+
+function qs(params) {
+  return Object.keys(params).map(k =>
+    encodeURIComponent(k) + "=" + encodeURIComponent(params[k])).join("&");
+}
+
+/* ---------- мост в Android-оболочке (JSONP) ----------
+   <script> не подчиняется CORS, поэтому мост отдаёт не JSON, а
+   вызов cb({...}) — так работает и file://, и https://local.yandex. */
+let bridgeSeq = 0;
+function jsonp(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const cb = "__yaBridge" + (++bridgeSeq);
+    const el = document.createElement("script");
+    let done = false;
+    const finish = (fn, arg) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      if (el.parentNode) el.parentNode.removeChild(el);
+      fn(arg);
+    };
+    const timer = setTimeout(() => finish(reject, new Error("мост не ответил")),
+                             timeoutMs || 40000);
+    window[cb] = obj => finish(resolve, obj);
+    el.onerror = () => finish(reject, new Error("мост недоступен"));
+    el.src = url + "&cb=" + encodeURIComponent(cb);
+    document.body.appendChild(el);
+  });
+}
+
+function b64url(bytes) {
+  return btoa(String.fromCharCode.apply(null, bytes))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function utf8Bytes(s) { return Array.from(new TextEncoder().encode(s)); }
+
+async function bridgeHttp(method, url, body) {
+  const q = qs({ url: url, method: method,
+                 body: body == null ? "" : b64url(utf8Bytes(body)) });
+  const j = await jsonp("https://local.yandex/http?" + q);
+  if (!j.ok) throw new Error(j.error || "ошибка моста");
+  return j.text;
+}
+
+async function fetchText(url, body) {
+  const opt = body === undefined ? {} : {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body,
+  };
+  const r = await fetch(url, opt);
+  const t = await r.text();
+  if (!r.ok) throw new Error("HTTP " + r.status + ": " + t);
+  return t;
+}
+
+/* ---------- RSA/PKCS#1 v1.5 на BigInt ---------- */
+function derRead(d, o) {
+  const tag = d[o];
+  let len = d[o + 1], hdr = 2;
+  if (len & 0x80) {
+    const n = len & 0x7f;
+    len = 0;
+    for (let i = 0; i < n; i++) len = len * 256 + d[o + 2 + i];
+    hdr = 2 + n;
+  }
+  return { tag: tag, body: o + hdr, len: len, end: o + hdr + len };
+}
+
+function pemToDer(pem) {
+  const bin = atob(String(pem).replace(/-----[^-]+-----/g, "").replace(/\s+/g, ""));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function bigFromBytes(bytes) {
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    hex += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+  }
+  return BigInt("0x" + (hex || "0"));
+}
+
+function rsaPublicKey(pem) {
+  const d = pemToDer(pem);
+  const seq = derRead(d, 0);                 // SEQUENCE SubjectPublicKeyInfo
+  const alg = derRead(d, seq.body);          // SEQUENCE AlgorithmIdentifier
+  const bits = derRead(d, alg.end);          // BIT STRING
+  const rsa = derRead(d, bits.body + 1);     // пропускаем байт unused bits
+  const n = derRead(d, rsa.body);            // INTEGER modulus
+  const e = derRead(d, n.end);               // INTEGER exponent
+  return {
+    n: bigFromBytes(d.subarray(n.body, n.end)),
+    e: bigFromBytes(d.subarray(e.body, e.end)),
+  };
+}
+
+function modPow(b, e, m) {
+  let r = 1n;
+  b %= m;
+  while (e > 0n) {
+    if (e & 1n) r = (r * b) % m;
+    b = (b * b) % m;
+    e >>= 1n;
+  }
+  return r;
+}
+
+function rsaEncrypt(pem, text) {
+  if (typeof BigInt !== "function") {
+    throw new Error("нужен WebView с BigInt (Android 8+)");
+  }
+  const key = rsaPublicKey(pem);
+  const k = Math.ceil(key.n.toString(16).length / 2);
+  const msg = utf8Bytes(text);
+  if (msg.length > k - 11) throw new Error("слишком длинный текст для RSA");
+
+  const em = [0, 2];
+  const rnd = new Uint8Array(k - 3 - msg.length);
+  crypto.getRandomValues(rnd);
+  for (let i = 0; i < rnd.length; i++) em.push((rnd[i] % 255) + 1);
+  em.push(0);
+  for (let i = 0; i < msg.length; i++) em.push(msg[i]);
+
+  const c = modPow(bigFromBytes(em), key.e, key.n);
+  let hex = c.toString(16);
+  while (hex.length < k * 2) hex = "0" + hex;
+  const out = new Uint8Array(k);
+  for (let i = 0; i < k; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return btoa(String.fromCharCode.apply(null, out));
+}
+
+/* ---------- действия ---------- */
+async function readInfo() {
+  let text;
+  try {
+    text = await bridgeHttp("GET", wurl() + "/info", null);
+  } catch (e) {
+    text = await fetchText(wurl() + "/info");
+  }
+  return JSON.parse(text);
+}
+
+async function wifiInfo() {
+  wsetStatus("запрос /info…");
+  try {
+    const info = await readInfo();
+    wlog(JSON.stringify(info, null, 2));
+    wsetStatus("ok: " + (info.uuid || "?") + " / " + (info.version || "?"), "ok");
+  } catch (e) {
+    wsetStatus("ошибка: " + e.message, "warn");
+  }
+}
+
+async function wifiConnect() {
+  const ssid = document.getElementById("wssid").value.trim();
+  const pwd = document.getElementById("wpwd").value;
+  const token = document.getElementById("wtoken").value.trim() || "localpair0000000";
+  const wired = document.getElementById("wwired").checked;
+  if (!wired && !ssid) {
+    wsetStatus("укажите SSID или включите проводной режим", "warn");
+    return;
+  }
+  wsetStatus("подключаю…");
+  try {
+    const info = await readInfo();
+    const pem = info.crypto_key;
+    if (!pem) throw new Error("в /info нет crypto_key");
+
+    const body = { ssid: wired ? "" : ssid };
+    if (!wired) body.password = rsaEncrypt(pem, pwd);
+    body.xtoken_code = rsaEncrypt(pem, token);
+
+    let text;
+    try {
+      text = await bridgeHttp("POST", wurl() + "/connect", JSON.stringify(body));
+    } catch (e) {
+      text = await fetchText(wurl() + "/connect", JSON.stringify(body));
+    }
+    const res = JSON.parse(text);
+    wlog(JSON.stringify(res, null, 2));
+    const data = res.data || "";
+    if (res.status === "ok") wsetStatus("готово: устройство подключается к сети", "ok");
+    else if (data === "WIFI_SSID_NOT_FOUND") wsetStatus("SSID не найден — проверьте 2.4 ГГц", "warn");
+    else if (data === "WIFI_TIMEOUT") wsetStatus("таймаут Wi-Fi — проверьте пароль/сеть", "warn");
+    else wsetStatus("ответ: " + (res.status || "?") + " " + data, "warn");
+  } catch (e) {
+    wsetStatus("ошибка: " + e.message, "warn");
+  }
+}
+document.getElementById("winfo").onclick = wifiInfo;
+document.getElementById("wconnect").onclick = wifiConnect;
 
 regenerate(false);
 </script>

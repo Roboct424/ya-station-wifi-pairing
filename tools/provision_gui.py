@@ -16,6 +16,7 @@ import tkinter as tk
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import sound_protocol as sp  # noqa: E402
+from audio_play import Player  # noqa: E402
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -28,11 +29,11 @@ class App(tk.Tk):
         self.resizable(False, False)
 
         self.frame = b""
-        self.audio = None
         self.sr = sp.SR
         self.wav_path = APP_DIR / "pair_sound.wav"
         self.playing = False
         self.stop_flag = False
+        self.player = Player()
 
         self._build()
         self._refresh(False)
@@ -78,6 +79,13 @@ class App(tk.Tk):
         self.gain_lbl = ttk.Label(box, text="0.50")
         self.gain_lbl.grid(row=4, column=3, sticky="w")
 
+        ttk.Label(box, text="Предстарт (0–4)").grid(row=5, column=0, sticky="w", padx=8, pady=4)
+        self.preroll = tk.IntVar(value=0)
+        ttk.Spinbox(box, from_=0, to=4, textvariable=self.preroll, width=6).grid(
+            row=5, column=1, sticky="w", pady=4)
+        ttk.Label(box, text="повтор преамбулы для «пробуждения» декодера").grid(
+            row=5, column=2, columnspan=2, sticky="w")
+
         info = ttk.LabelFrame(self, text="Кадр")
         info.pack(fill="x", **pad)
         self.frame_txt = tk.Text(info, height=3, wrap="char", font=("Consolas", 9))
@@ -118,16 +126,17 @@ class App(tk.Tk):
             return
         gain = float(self.gain.get())
         self.gain_lbl.config(text=f"{gain:.2f}")
+        preroll = max(0, min(4, int(self.preroll.get())))
         try:
             frame = sp.build_frame(wtype, ssid, pwd, token)
-            path = sp.make_wav(frame, self.wav_path, gain=gain)
+            path = sp.make_wav(frame, self.wav_path, gain=gain, preroll=preroll)
         except Exception as exc:
             messagebox.showerror("Ошибка", f"Не удалось собрать кадр: {exc}")
             return
 
         self.frame = frame
-        self.audio, self.sr = sp.read_wav(path)
-        info = sp.describe(frame, gain)
+        self.wav_path = path
+        info = sp.describe(frame, gain, preroll=preroll)
         self.frame_txt.delete("1.0", "end")
         self.frame_txt.insert("1.0", frame.hex())
         self.info_lbl.config(
@@ -141,16 +150,15 @@ class App(tk.Tk):
         if self.playing:
             return
         self._refresh(False)
-        if self.audio is None:
+        if not self.frame:
             return
         self.playing = True
         self._log(f"играю (громкость {float(self.gain.get()):.2f})")
 
         def run():
             try:
-                import sounddevice as sd
-                sd.play(self.audio, self.sr, blocking=True)
-                self._log("проиграно")
+                self.player.play(self.wav_path)
+                self._log(f"проиграно (плеер: {self.player.backend})")
             except Exception as exc:
                 self._log(f"ошибка звука: {exc}")
             finally:
@@ -166,23 +174,23 @@ class App(tk.Tk):
         gains = [float(self.gain.get()), 0.35, 0.65, 0.8]
 
         def run():
-            import sounddevice as sd
             before = self._arp()
             attempt = 0
+            preroll = max(0, min(4, int(self.preroll.get())))
             while not self.stop_flag:
                 gain = gains[attempt % len(gains)]
                 attempt += 1
                 ssid, pwd, token, wtype = self._params()
                 try:
                     frame = sp.build_frame(wtype, ssid, pwd, token)
-                    path = sp.make_wav(frame, self.wav_path, gain=gain)
-                    audio, sr = sp.read_wav(path)
+                    path = sp.make_wav(frame, self.wav_path, gain=gain,
+                                       preroll=preroll)
                 except Exception as exc:
                     self._log(f"ошибка сборки: {exc}")
                     break
                 self._log(f"[{attempt}] играю gain={gain}")
                 try:
-                    sd.play(audio, sr, blocking=True)
+                    self.player.play(path)
                 except Exception as exc:
                     self._log(f"ошибка звука: {exc}")
                     break
@@ -204,11 +212,7 @@ class App(tk.Tk):
 
     def stop(self):
         self.stop_flag = True
-        try:
-            import sounddevice as sd
-            sd.stop()
-        except Exception:
-            pass
+        self.player.stop()
 
     def _arp(self) -> set[tuple[str, str]]:
         try:

@@ -20,12 +20,11 @@ pair_sound.wav
 .DS_Store
 Thumbs.db
 
-# сборки
+# СЃР±РѕСЂРєР°
 dist/
 .build_exe/
 *.spec
 
-
 # PyInstaller
 build/
-
+build_linux/

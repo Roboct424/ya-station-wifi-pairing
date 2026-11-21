@@ -1,4 +1,4 @@
-# Сборка APK без Android SDK и Gradle.
+﻿# Сборка APK без Android SDK и Gradle.
 #   1) python fetch_tools.py     (скачает aapt2, d8, android.jar, apksig, ecj)
 #   2) powershell -File build_apk.ps1
 #
@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) { throw "ecj failed" }
 
 $classes = Get-ChildItem (Join-Path $build 'classes') -Recurse -Filter '*.class' | ForEach-Object { $_.FullName }
 Write-Host "d8..."
-& java -cp $r8 com.android.tools.r8.D8 --lib $androidJar --lib $rt --min-api 16 --output (Join-Path $build 'dex') @classes
+& java -cp $r8 com.android.tools.r8.D8 --lib $androidJar --lib $rt --min-api 17 --output (Join-Path $build 'dex') @classes
 if ($LASTEXITCODE -ne 0) { throw "d8 failed" }
 
 Write-Host "упаковка dex..."

@@ -64,14 +64,13 @@ def main() -> int:
     ap.add_argument("--mac-prefix", default=None,
                     help="например b8-87-6e, чтобы не спутать с другими устройствами")
     ap.add_argument("--out", default="provision.wav")
+    ap.add_argument("--preroll", type=int, default=0, choices=(0, 1, 2, 3, 4),
+                    help="предстарт 0..4: повтор преамбулы")
     a = ap.parse_args()
 
-    try:
-        import sounddevice as sd
-    except Exception as exc:  # pragma: no cover
-        print(f"нет sounddevice: {exc}")
-        return 1
+    from audio_play import Player
 
+    player = Player()
     gains = [float(x) for x in a.gains.split(",") if x.strip()]
     before = arp_table()
     deadline = time.time() + a.timeout
@@ -83,10 +82,13 @@ def main() -> int:
         attempt += 1
 
         frame = sp.build_frame(a.type, a.ssid, a.password, a.token)
-        path = sp.make_wav(frame, a.out, gain=gain)
-        audio, sr = sp.read_wav(path)
+        path = sp.make_wav(frame, a.out, gain=gain, preroll=a.preroll)
         print(f"[{attempt}] играю (gain={gain}) …", flush=True)
-        sd.play(audio, sr, blocking=True)
+        try:
+            player.play(path)
+        except Exception as exc:  # pragma: no cover
+            print(f"не удалось проиграть: {exc}\nWAV сохранён: {path}")
+            return 1
 
         for _ in range(int(a.gap)):
             time.sleep(1)

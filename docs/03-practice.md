@@ -36,11 +36,20 @@
 ### Вариант A: командная строка (ПК)
 
 ```bash
-pip install numpy sounddevice
+pip install numpy    # sounddevice не обязателен (winsound/paplay/aplay/afplay)
 python tools/pair_by_sound.py --ssid "YaRig" --password "11111111"
 ```
 
 По умолчанию: 3 повтора с паузой 9 с, громкость 0.5.
+
+Если колонка «не слышит» первые кадры, добавьте предстарт 1–4:
+
+```bash
+python tools/pair_by_sound.py --ssid "YaRig" --password "11111111" --preroll 2
+```
+
+Это повтор преамбулы перед кадром: декодер успевает открыть микрофонный тракт.
+Каждый повтор — +160 мс, лишние безвредны.
 
 ### Вариант B: автоматический режим
 
@@ -63,8 +72,14 @@ python tools/provision.py --ssid "YaRig" --password "11111111" --mac-prefix b8-8
 python tools/provision_gui.py
 ```
 
-Поля SSID/пароль/тип, ползунок громкости, кнопки «Играть», «Цикл до подключения»,
-«Сохранить WAV».
+Поля SSID/пароль/тип, ползунок громкости, предстарт 0–4, кнопки «Играть»,
+«Цикл до подключения», «Сохранить WAV».
+
+Единое окно с двумя вкладками («Звук» и «Wi-Fi (AP)»):
+
+```bash
+python tools/station_pairing.py gui
+```
 
 ### Вариант D: телефон
 
@@ -79,8 +94,10 @@ python -m http.server 8000     # в папке tools/
 
 ### Вариант E: APK
 
-`android/SoundCode.apk` — то же самое в виде приложения (WebView, офлайн, без
-разрешений). Сборка из исходников — `android/README.md`.
+`android/SoundCode.apk` — то же самое в виде приложения (WebView, офлайн),
+плюс вкладка «Wi-Fi (AP)»: телефон подключается к точке доступа устройства и
+отправляет креды по HTTP. Единственное разрешение — `INTERNET` (локальная сеть).
+Сборка из исходников — `android/README.md`.
 
 ---
 
