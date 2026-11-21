@@ -580,8 +580,14 @@ async function wifiConnect() {
     const pem = info.crypto_key;
     if (!pem) throw new Error("в /info нет crypto_key");
 
-    const body = { ssid: wired ? "" : ssid };
-    if (!wired) body.password = rsaEncrypt(pem, pwd);
+    // wifi_type=4 — маркер «работать по Ethernet»: прошивка не ищет Wi-Fi,
+    // а регистрируется через уже поднятый провод. Без него Хаб отвечает
+    // WIFI_SSID_NOT_FOUND (проверено на 0.18.1.7).
+    const body = {
+      ssid: wired ? "" : ssid,
+      password: rsaEncrypt(pem, wired ? "" : pwd),
+      wifi_type: wired ? 4 : 2,
+    };
     body.xtoken_code = rsaEncrypt(pem, token);
 
     let text;

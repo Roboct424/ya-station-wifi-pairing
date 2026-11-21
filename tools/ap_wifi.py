@@ -105,12 +105,16 @@ def build_connect_body(
     """Собирает тело ``/connect``.
 
     Пароль и токен всегда шифруются ключом из ``/info``. В проводном режиме
-    Wi-Fi-креды не передаются (SSID пустой, пароля нет).
+    SSID пустой, а ``wifi_type = 4`` («скрытая сеть») — именно так приложение
+    помечает «работать по уже поднятому Ethernet». Без ``wifi_type`` прошивка
+    подставляет 3 и пытается искать Wi-Fi, отвечая ``WIFI_SSID_NOT_FOUND``.
     """
-    body: dict = {"ssid": "" if wired else ssid}
-    if not wired:
-        body["password"] = encrypt_field(crypto_key, password)
-    body["xtoken_code"] = encrypt_field(crypto_key, token)
+    body: dict = {
+        "ssid": "" if wired else ssid,
+        "password": encrypt_field(crypto_key, "" if wired else password),
+        "wifi_type": 4 if wired else 2,
+        "xtoken_code": encrypt_field(crypto_key, token),
+    }
     return body
 
 
