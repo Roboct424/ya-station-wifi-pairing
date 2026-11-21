@@ -102,7 +102,15 @@ class Player:
             except Exception:
                 self._proc = None
 
-        self._play_sounddevice(path, device, block)
+        try:
+            self._play_sounddevice(path, device, block)
+        except Exception as exc:
+            if device is not None:
+                raise
+            raise RuntimeError(
+                f"нет аудиоплеера ({exc}): установите pulseaudio-utils (paplay) "
+                f"или alsa-utils (aplay), либо pip install sounddevice"
+            ) from exc
         return self.backend or "sounddevice"
 
     def _play_sounddevice(self, path: Path, device: int | None,
