@@ -1,0 +1,55 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller cryptography numpy sounddevice
+
+      - name: Install PortAudio (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
+      - name: Install PortAudio (macOS)
+        if: runner.os == 'macOS'
+        run: brew install portaudio || true
+
+      - name: Build CLI
+        run: >
+          python -m PyInstaller --noconfirm --onefile
+          --name StationPairing
+          --distpath dist --workpath build --specpath build
+          tools/station_pairing.py
+
+      - name: Build GUI
+        run: >
+          python -m PyInstaller --noconfirm --onefile --windowed
+          --name StationPairingGUI
+          --distpath dist --workpath build --specpath build
+          tools/station_pairing_gui.py
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: StationPairing-${{ runner.os }}
+          path: dist/StationPairing*
+          if-no-files-found: error

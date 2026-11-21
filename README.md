@@ -91,9 +91,15 @@ python tools/station_pairing.py gui
 
 * Windows: `dist/StationPairing.exe` (CLI) и
   `dist/StationPairingGUI.exe` (GUI);
-* Linux/macOS: `bash packaging/build_unix.sh` (PyInstaller);
+* Linux x86_64: `dist/StationPairing-linux-x86_64` и
+  `dist/StationPairingGUI-linux-x86_64` (для звука нужен `libportaudio2`);
+* macOS: `bash packaging/build_unix.sh` на Mac или артефакт из
+  GitHub Actions (`.github/workflows/build.yml`);
 * Debian/Ubuntu: `python packaging/build_deb.py` (пакет ставит
   `ya-station-pairing` и `ya-station-pairing-gui`).
+
+CI (`.github/workflows/build.yml`) собирает Windows/Linux/macOS
+автоматически; артефакты — во вкладке Actions.
 
 Старые раздельные команды (`pair_by_sound.py`, `provision.py`,
 `ap_wifi.py`) остаются для совместимости.
@@ -236,9 +242,15 @@ Prebuilt binaries:
 
 * Windows: `dist/StationPairing.exe` (CLI) and
   `dist/StationPairingGUI.exe` (GUI);
-* Linux/macOS: `bash packaging/build_unix.sh` (PyInstaller);
+* Linux x86_64: `dist/StationPairing-linux-x86_64` and
+  `dist/StationPairingGUI-linux-x86_64` (`libportaudio2` for sound);
+* macOS: `bash packaging/build_unix.sh` on a Mac or the GitHub Actions
+  artifact (`.github/workflows/build.yml`);
 * Debian/Ubuntu: `python packaging/build_deb.py` (installs
   `ya-station-pairing` and `ya-station-pairing-gui`).
+
+CI (`.github/workflows/build.yml`) builds Windows/Linux/macOS
+automatically; artifacts are on the Actions tab.
 
 The old separate commands (`pair_by_sound.py`, `provision.py`,
 `ap_wifi.py`) remain for compatibility.
