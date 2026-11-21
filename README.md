@@ -128,6 +128,9 @@ CI (`.github/workflows/build.yml`) собирает Windows/Linux/macOS
 
 ### Релизы
 
+Готовые файлы: [`releases/latest`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/latest)
+(текущий — [`v1.2.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.2.0)).
+
 * `SoundCode.apk` — Android-приложение: звук + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: звук + AP HTTP (CLI, один файл)
 * `StationPairingGUI.exe` — Windows: звук + AP HTTP (GUI, один файл)
@@ -285,6 +288,9 @@ Details: [`docs/03-practice.md`](docs/03-practice.md).
 | `examples/` | sample frame and the full tone sequence |
 
 ### Releases
+
+Prebuilt files: [`releases/latest`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/latest)
+(current: [`v1.2.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.2.0)).
 
 * `SoundCode.apk` — Android application: sound + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: sound + AP HTTP (CLI, single file)
