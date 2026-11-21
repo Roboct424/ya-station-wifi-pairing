@@ -94,7 +94,7 @@ python -m http.server 8000     # в папке tools/
 
 ### Вариант E: APK
 
-`android/SoundCode.apk` — то же самое в виде приложения (WebView, офлайн),
+`android/StationPairing.apk` — то же самое в виде приложения (WebView, офлайн),
 плюс вкладка «Wi-Fi (AP)»: телефон подключается к точке доступа устройства и
 отправляет креды по HTTP. Единственное разрешение — `INTERNET` (локальная сеть).
 Сборка из исходников — `android/README.md`.

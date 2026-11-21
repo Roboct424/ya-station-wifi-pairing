@@ -75,7 +75,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $build 'signer') | Out-Null
 & java -jar $ecj -source 8 -target 8 -nowarn -bootclasspath $rt -cp $apksig -d (Join-Path $build 'signer') (Join-Path $proj 'signer\Signer.java')
 if ($LASTEXITCODE -ne 0) { throw "signer compile failed" }
 
-$out = Join-Path $proj 'SoundCode.apk'
+$out = Join-Path $proj 'StationPairing.apk'
 & java -cp "$(Join-Path $build 'signer');$apksig" Signer (Join-Path $build 'base.apk') $out $keyPem $crtPem
 if ($LASTEXITCODE -ne 0) { throw "signing failed" }
 

@@ -13,17 +13,25 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * Оболочка вокруг tools/sound_code.html (он же ассет index.html).
  *
- * Мост для вкладки «Wi-Fi (AP)» сделан через JSONP, а не через
- * @JavascriptInterface: в Maven-stub android.jar (API 16) нет
- * android.webkit.JavascriptInterface, org.json и javax.crypto.
- * Поэтому Java умеет только локальный HTTP, а RSA/PKCS1 и JSON
- * считает сам HTML на BigInt.
+ * targetSdk 33: Play Protect блокирует сайдлоад приложений со старым
+ * targetSdk. Вместе с этим нельзя использовать атрибут
+ * android:usesCleartextTraffic (его нет в stub android.jar API 16),
+ * поэтому HTTP к точке доступа устройства сделан вручную поверх
+ * java.net.Socket: политика cleartext применяется к HttpURLConnection,
+ * но не к сырым сокетам.
+ *
+ * Мост: JSONP (<script> не подчиняется CORS), RSA/PKCS#1 и JSON считает
+ * сам HTML на BigInt — в stub android.jar нет org.json и javax.crypto.
  *
  * Запрос:  https://local.yandex/http?url=...&method=GET|POST&body=<base64url>&cb=name
  * Ответ:   name({"ok":true,"text":"<сырой ответ устройства>"})
@@ -130,35 +138,126 @@ public class MainActivity extends Activity {
     }
 
     // --------------------------------------------------------------- http ---
-    private String read(InputStream in) throws Exception {
-        if (in == null) return "";
+    /** HTTP/1.1 поверх Socket: обходит политику cleartext для targetSdk 28+. */
+    private String http(String method, String url, String body) throws Exception {
+        URL u = new URL(url);
+        String host = u.getHost();
+        int port = u.getPort() > 0 ? u.getPort() : 80;
+        String path = u.getFile();
+        if (path == null || path.length() == 0) path = "/";
+
+        Socket socket = new Socket();
+        socket.connect(new InetSocketAddress(host, port), 5000);
+        socket.setSoTimeout(30000);
+        try {
+            byte[] payload = body == null ? null : body.getBytes("UTF-8");
+            StringBuilder head = new StringBuilder();
+            head.append(method).append(' ').append(path).append(" HTTP/1.1\r\n");
+            head.append("Host: ").append(host).append(':').append(port).append("\r\n");
+            head.append("Accept: application/json\r\n");
+            head.append("Connection: close\r\n");
+            if (payload != null) {
+                head.append("Content-Type: application/json\r\n");
+                head.append("Content-Length: ").append(payload.length).append("\r\n");
+            }
+            head.append("\r\n");
+
+            OutputStream out = socket.getOutputStream();
+            out.write(head.toString().getBytes("UTF-8"));
+            if (payload != null) out.write(payload);
+            out.flush();
+
+            InputStream in = socket.getInputStream();
+            ByteArrayOutputStream raw = new ByteArrayOutputStream();
+            int match = 0;
+            while (true) {
+                int c = in.read();
+                if (c < 0) break;
+                raw.write(c);
+                if (c == '\r') match = (match == 2) ? 3 : 1;
+                else if (c == '\n') match = (match == 1) ? 2 : (match == 3 ? 4 : 0);
+                else match = 0;
+                if (match == 4) break;
+                if (raw.size() > 65536) throw new Exception("слишком длинные заголовки");
+            }
+
+            String headText = raw.toString("UTF-8");
+            int split = headText.indexOf("\r\n\r\n");
+            if (split < 0) throw new Exception("нет конца заголовков");
+            String[] lines = headText.substring(0, split).split("\r\n");
+            if (lines.length == 0) throw new Exception("пустой ответ");
+            String[] status = lines[0].split(" ", 3);
+            int code = Integer.parseInt(status[1]);
+
+            Map<String, String> headers = new HashMap<String, String>();
+            for (int i = 1; i < lines.length; i++) {
+                int colon = lines[i].indexOf(':');
+                if (colon > 0) {
+                    headers.put(lines[i].substring(0, colon).trim().toLowerCase(Locale.US),
+                            lines[i].substring(colon + 1).trim());
+                }
+            }
+
+            byte[] decoded;
+            if ("chunked".equalsIgnoreCase(headers.get("transfer-encoding"))) {
+                decoded = readChunked(in);
+            } else if (headers.containsKey("content-length")) {
+                int len = Integer.parseInt(headers.get("content-length"));
+                decoded = readExactly(in, len);
+            } else {
+                decoded = readAll(in);
+            }
+            String text = new String(decoded, "UTF-8");
+            if (code >= 400) throw new Exception("HTTP " + code + ": " + text);
+            return text;
+        } finally {
+            try { socket.close(); } catch (Exception ignored) { }
+        }
+    }
+
+    private static byte[] readExactly(InputStream in, int len) throws Exception {
+        byte[] buf = new byte[len];
+        int off = 0;
+        while (off < len) {
+            int n = in.read(buf, off, len - off);
+            if (n < 0) break;
+            off += n;
+        }
+        if (off < len) throw new Exception("короткий ответ: " + off + "/" + len);
+        return buf;
+    }
+
+    private static byte[] readAll(InputStream in) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buf = new byte[4096];
         int n;
         while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-        in.close();
+        return out.toByteArray();
+    }
+
+    private static String readLine(InputStream in) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int c;
+        while ((c = in.read()) >= 0) {
+            if (c == '\n') break;
+            if (c != '\r') out.write(c);
+        }
         return out.toString("UTF-8");
     }
 
-    private String http(String method, String url, String body) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setRequestMethod(method);
-        c.setConnectTimeout(5000);
-        c.setReadTimeout(30000);
-        c.setRequestProperty("Accept", "application/json");
-        if (body != null) {
-            c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "application/json");
-            byte[] data = body.getBytes("UTF-8");
-            OutputStream os = c.getOutputStream();
-            os.write(data);
-            os.close();
+    private static byte[] readChunked(InputStream in) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        while (true) {
+            String line = readLine(in);
+            if (line.length() == 0) continue;
+            int semi = line.indexOf(';');
+            if (semi >= 0) line = line.substring(0, semi);
+            int size = Integer.parseInt(line.trim(), 16);
+            if (size == 0) break;
+            out.write(readExactly(in, size));
+            readLine(in);
         }
-        int code = c.getResponseCode();
-        InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
-        String text = read(in);
-        if (code >= 400) throw new Exception("HTTP " + code + ": " + text);
-        return text;
+        return out.toByteArray();
     }
 
     // -------------------------------------------------------------- base64 ---

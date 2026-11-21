@@ -7,8 +7,23 @@
 
 ## Готовый APK
 
-`SoundCode.apk` — можно сразу ставить на телефон (Android 4.2+, `minSdk 17`).
+`StationPairing.apk` — можно сразу ставить на телефон (Android 4.2+,
+`minSdk 17`, `targetSdk 33`, `versionName 1.2.1`).
 При установке разрешите «установку из неизвестных источников».
+
+### Если установка не проходит
+
+* **«Недостаточно места» / `INSTALL_FAILED_INSUFFICIENT_STORAGE`.** Android
+  отказывает в установке, когда свободно меньше ~500 МБ (системный порог),
+  даже если APK весит 21 КБ. Освободите место или временно понизьте порог:
+  `adb shell settings put global sys_storage_threshold_max_bytes 16777216`
+  (после установки верните: `adb shell settings delete global …`).
+* **`INSTALL_FAILED_USER_RESTRICTED` (MIUI).** В «Для разработчиков» включите
+  «Установка через USB» либо ставьте вручную: скопируйте APK в `Download`,
+  откройте файловым менеджером и подтвердите установку.
+* **Google Play Защита: «Рекомендуется проверка приложения».** Нажмите
+  «Подробнее» → ссылку «Установить без проверки». Блокировка старых
+  `targetSdk` (как было с 27) больше не срабатывает: сейчас `targetSdk 33`.
 
 ## Сборка из исходников
 
@@ -35,26 +50,29 @@ powershell -File build_apk.ps1
 `javax.crypto` и даже `android.webkit.JavascriptInterface`. Поэтому мост в Java
 не использует ни `@JavascriptInterface`, ни JSON-библиотеки:
 
-* Java умеет только локальный HTTP (`HttpURLConnection`) и отдаёт **сырой текст**
-  ответа устройства;
+* Java умеет только локальный HTTP и отдаёт **сырой текст** ответа устройства;
+* запрос идёт **поверх `java.net.Socket`**, а не `HttpURLConnection`: при
+  `targetSdk 28+` политика cleartext блокирует обычный HTTP, а к сырым сокетам
+  она не применяется — так не нужен `android:usesCleartextTraffic`, которого
+  нет в stub `android.jar`;
 * RSA/PKCS#1 v1.5 и JSON считает сам HTML на `BigInt` (`rsaEncrypt()`);
 * передача — через JSONP: `<script src="https://local.yandex/http?...&cb=...">`,
   который перехватывает `WebViewClient.shouldInterceptRequest`
   (у `<script>` нет CORS-ограничений, поэтому работает из `file://`).
 
-`targetSdkVersion=27` выбран специально: cleartext-HTTP к `192.168.43.1`
-разрешён по умолчанию (блокировка появилась с `targetSdk 28`), при этом
-подпись v2 уже есть.
+`targetSdkVersion=33` — чтобы Play Protect не блокировал сайдлоад как
+«приложение для старой версии Android». `android:exported="true"` обязателен
+для `targetSdk 31+`. Подпись v1+v2 уже есть.
 
 ## Структура
 
 ```
-AndroidManifest.xml              minSdk 17, targetSdk 27, INTERNET
-src/com/rig/soundcode/MainActivity.java  WebView + JSONP-мост (HTTP)
+AndroidManifest.xml              minSdk 17, targetSdk 33, INTERNET
+src/com/rig/soundcode/MainActivity.java  WebView + JSONP-мост (HTTP через Socket)
 signer/Signer.java               подпись через apksig (PEM-ключ)
 fetch_tools.py                   скачивание инструментов в .tools/
 build_apk.ps1                    сборка одной командой
-SoundCode.apk                    готовый артефакт
+StationPairing.apk               готовый артефакт
 ```
 
 ## Что делает приложение
@@ -81,3 +99,10 @@ SoundCode.apk                    готовый артефакт
 Звук стартует без «нажмите, чтобы разрешить» —
 `setMediaPlaybackRequiresUserGesture(false)` вызывается через рефлексию,
 чтобы код собирался под старый `android.jar`.
+
+## Проверено
+
+На телефоне `M2101K6G` (Android 13, MIUI 14) APK 1.2.1 установлен и запущен.
+Сквозной тест в приложении: `/info` → RSA/PKCS#1 → `/connect` на мок-сервер
+(через `adb reverse`); мок расшифровал `secret-123` и `localpair0000000`,
+`uuid=MOCK00000001`. RGW-путь тот же, что у `station_pairing.py wifi`.
