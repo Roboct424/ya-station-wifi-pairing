@@ -25,3 +25,7 @@ dist/
 .build_exe/
 *.spec
 
+
+# PyInstaller
+build/
+

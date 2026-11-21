@@ -2,8 +2,10 @@
 
 ## Русский
 
-Подключение Яндекс Станции к Wi-Fi **звуком**: без приложения, облака и root.
-Колонка принимает SSID и пароль из акустического сигнала длительностью 4.5 секунды.
+Подключение Яндекс Станции к Wi-Fi **звуком или по AP HTTP**: без приложения,
+облака и root. Колонка принимает SSID и пароль из акустического сигнала
+длительностью 4.5 секунды, а устройства с точкой доступа — по локальному
+HTTP с RSA-шифрованием.
 
 В репозитории — разобранный протокол (кадр, Reed–Solomon, тоны), разбор BLE-канала
 и объяснение, почему он не подходит для офлайна, готовые инструменты и приложение.
@@ -27,6 +29,33 @@ RS:    блоки 11 данных + 4 ECC ниббла, GF(16), полином 0
 
 Полное описание, включая примеры и проверочные векторы:
 [`docs/01-sound-protocol.md`](docs/01-sound-protocol.md).
+
+### Wi-Fi по AP HTTP
+
+У устройств с точкой доступа (Хабы, станции с экраном) есть второй локальный
+путь: устройство поднимает `Yandex-Hub` (`192.168.43.1/24`) и HTTP на порту
+`8080`. Ноутбук подключается к этой точке и отправляет Wi-Fi-креды:
+
+```text
+GET  /info      → crypto_key (RSA-2048), mac, uuid, version
+POST /connect   → {"ssid": "...",
+                    "password": "<base64(RSA_PKCS1(пароль))>",
+                    "xtoken_code": "<base64(RSA_PKCS1(токен))>"}
+```
+
+- пароль и токен шифруются **RSA/PKCS1 v1.5** публичным ключом из `/info`
+  (OAEP устройство не принимает);
+- токен активации на шаге Wi-Fi **не проверяется** — подходит любая строка,
+  облако не нужно;
+- проводной режим: `{"ssid": "", "xtoken_code": ...}` без пароля — устройство
+  использует Ethernet;
+- часть устройств умеет только 2.4 ГГц: на 5 ГГц ответ
+  `WIFI_SSID_NOT_FOUND`.
+
+Подробно: [`docs/05-ap-http.md`](docs/05-ap-http.md).
+Инструменты: [`tools/ap_wifi.py`](tools/ap_wifi.py) (CLI),
+[`tools/ap_wifi_gui.py`](tools/ap_wifi_gui.py) (GUI),
+[`tools/test_ap_wifi.py`](tools/test_ap_wifi.py) (mock-тест).
 
 ### Почему не Bluetooth
 
@@ -63,14 +92,17 @@ python tools/provision.py --ssid "MyWiFi" --password "secret"
 | [`docs/02-ble-protocol.md`](docs/02-ble-protocol.md) | BLE: GATT-карта, формат кадров, шифрование в TEE |
 | [`docs/03-practice.md`](docs/03-practice.md) | практика: громкость, окно декодера, разбор проблем |
 | [`docs/04-scope.md`](docs/04-scope.md) | границы проекта, безопасность, правовое |
-| `tools/` | кодер, CLI, автопровижининг, GUI, веб-версия, тесты |
+| [`docs/05-ap-http.md`](docs/05-ap-http.md) | Wi-Fi через AP HTTP: `/info`, RSA/PKCS1, `/connect`, Ethernet |
+| `tools/` | кодер, CLI, автопровижининг, GUI, AP HTTP, веб-версия, тесты |
 | `android/` | APK и исходники (WebView, без разрешений) |
 | `examples/` | пример кадра и полная последовательность тонов |
 
 ### Релизы
 
 * `SoundCode.apk` — Android-приложение
-* `StationWiFiPairing.exe` — Windows (GUI, один файл)
+* `StationWiFiPairing.exe` — Windows (GUI, звук, один файл)
+* `StationAPRegister.exe` — Windows CLI: Wi-Fi через AP HTTP
+* `StationAPRegisterGUI.exe` — Windows GUI: Wi-Fi через AP HTTP
 * `ya-station-wifi-pairing_1.0.0_all.deb` — Debian/Ubuntu пакет
 * `ya-station-wifi-pairing-1.0.0.tar.gz` — исходники для Linux/macOS
 
@@ -87,7 +119,7 @@ python tools/test_frame.py
 ### Чего здесь нет
 
 Нет подмены трафика, эмуляции облака, регистрации в аккаунте и получения root —
-это отдельная задача. Здесь только подключение колонки к Wi-Fi.
+это отдельная задача. Здесь только подключение к Wi-Fi: звуком и через AP HTTP.
 
 ### Лицензия
 
@@ -97,8 +129,10 @@ MIT. Не аффилировано с вендором. Используйте �
 
 ## English
 
-Connecting a Yandex Station to Wi-Fi **over sound**: no app, no cloud, no root.
-The station receives the SSID and password from a 4.5-second acoustic signal.
+Connecting a Yandex Station to Wi-Fi **over sound or AP HTTP**: no app, no
+cloud, no root. The station receives the SSID and password from a 4.5-second
+acoustic signal, and devices with an access point accept them over local HTTP
+with RSA encryption.
 
 The repository contains the reverse-engineered protocol (frame, Reed–Solomon, tones),
 a full BLE analysis and an explanation of why it cannot be used offline, plus ready
@@ -123,6 +157,32 @@ string works and no cloud is involved.
 
 Full description with examples and test vectors:
 [`docs/01-sound-protocol.md`](docs/01-sound-protocol.md).
+
+### Wi-Fi over AP HTTP
+
+Devices with an access point (Hubs, stations with a screen) have a second local
+path: the device starts `Yandex-Hub` (`192.168.43.1/24`) and HTTP on port
+`8080`. The laptop joins that AP and sends the credentials:
+
+```text
+GET  /info      → crypto_key (RSA-2048), mac, uuid, version
+POST /connect   → {"ssid": "...",
+                    "password": "<base64(RSA_PKCS1(password))>",
+                    "xtoken_code": "<base64(RSA_PKCS1(token))>"}
+```
+
+- the password and token are encrypted with **RSA/PKCS1 v1.5** using the key
+  from `/info` (OAEP is rejected);
+- the activation token is **not validated** during the Wi-Fi step — any string
+  works, no cloud involved;
+- wired mode: `{"ssid": "", "xtoken_code": ...}` without a password — the
+  device uses Ethernet;
+- some devices are 2.4 GHz only: a 5 GHz AP returns `WIFI_SSID_NOT_FOUND`.
+
+Details: [`docs/05-ap-http.md`](docs/05-ap-http.md).
+Tools: [`tools/ap_wifi.py`](tools/ap_wifi.py) (CLI),
+[`tools/ap_wifi_gui.py`](tools/ap_wifi_gui.py) (GUI),
+[`tools/test_ap_wifi.py`](tools/test_ap_wifi.py) (mock test).
 
 ### Why not Bluetooth
 
@@ -159,14 +219,17 @@ Details: [`docs/03-practice.md`](docs/03-practice.md).
 | [`docs/02-ble-protocol.md`](docs/02-ble-protocol.md) | BLE: GATT map, frame format, encryption in the TEE |
 | [`docs/03-practice.md`](docs/03-practice.md) | practice: volume, decoder window, troubleshooting |
 | [`docs/04-scope.md`](docs/04-scope.md) | scope, security, legal notes |
-| `tools/` | encoder, CLI, auto-provisioning, GUI, web version, tests |
+| [`docs/05-ap-http.md`](docs/05-ap-http.md) | Wi-Fi over AP HTTP: `/info`, RSA/PKCS1, `/connect`, Ethernet |
+| `tools/` | encoder, CLI, auto-provisioning, GUI, AP HTTP, web version, tests |
 | `android/` | APK and sources (WebView, no permissions) |
 | `examples/` | sample frame and the full tone sequence |
 
 ### Releases
 
 * `SoundCode.apk` — Android application
-* `StationWiFiPairing.exe` — Windows (GUI, single file)
+* `StationWiFiPairing.exe` — Windows (GUI, sound, single file)
+* `StationAPRegister.exe` — Windows CLI: Wi-Fi over AP HTTP
+* `StationAPRegisterGUI.exe` — Windows GUI: Wi-Fi over AP HTTP
 * `ya-station-wifi-pairing_1.0.0_all.deb` — Debian/Ubuntu package
 * `ya-station-wifi-pairing-1.0.0.tar.gz` — sources for Linux/macOS
 
@@ -183,7 +246,7 @@ Verified on Station Mini 2, firmware `0.369.1.46`: reception confirmed by the lo
 ### Out of scope
 
 No traffic interception, no cloud emulation, no account registration and no rooting —
-that is a separate task. Only Wi-Fi provisioning is covered here.
+that is a separate task. Only Wi-Fi provisioning is covered here: sound and AP HTTP.
 
 ### License
 
