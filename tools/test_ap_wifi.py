@@ -53,6 +53,11 @@ class Handler(BaseHTTPRequestHandler):
                 "uuid": "TEST0000000001",
                 "version": "test",
             })
+        elif self.path == "/ssid":
+            self._json({"ssid": [
+                {"ssid": "Home", "level": -40, "secure": True},
+                {"ssid": "Other", "level": -70, "secure": True},
+            ]})
         else:
             self._json({"status": "ok"})
 
@@ -63,6 +68,9 @@ class Handler(BaseHTTPRequestHandler):
         SEEN["ssid"] = body.get("ssid")
         SEEN["password"] = decrypt(body["password"]) if "password" in body else None
         SEEN["token"] = decrypt(body["xtoken_code"])
+        SEEN["wifi_type"] = body.get("wifi_type")
+        SEEN["hidden_ssid"] = body.get("hidden_ssid")
+        SEEN["stop_access_point"] = body.get("stop_access_point")
         self._json({"status": "ok"})
 
 
@@ -88,11 +96,22 @@ def main() -> int:
             print("FAIL: password"); failures += 1
         if SEEN.get("token") != "token-xyz":
             print("FAIL: token"); failures += 1
+        if SEEN.get("wifi_type") != "WPA" or SEEN.get("hidden_ssid") is not False:
+            print("FAIL: wireless type"); failures += 1
+        if SEEN.get("stop_access_point") is not True:
+            print("FAIL: wireless stop_access_point"); failures += 1
 
         _, answer = ap_wifi.connect(url, wired=True)
         print("wired:", answer, "seen:", SEEN)
-        if SEEN.get("ssid") != "" or SEEN.get("password") is not None:
-            print("FAIL: wired body"); failures += 1
+        if SEEN.get("ssid") != "Home" or SEEN.get("password") != "":
+            print("FAIL: wired body (ssid must be a non-empty placeholder)")
+            failures += 1
+        if SEEN.get("wifi_type") != "NONE":
+            print("FAIL: wired wifi_type"); failures += 1
+        if SEEN.get("hidden_ssid") is not False:
+            print("FAIL: wired hidden_ssid"); failures += 1
+        if SEEN.get("stop_access_point") is not True:
+            print("FAIL: wired stop_access_point"); failures += 1
         if SEEN.get("token") != ap_wifi.DEFAULT_TOKEN:
             print("FAIL: wired token"); failures += 1
     finally:

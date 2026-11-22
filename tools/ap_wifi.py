@@ -95,6 +95,21 @@ def encrypt_field(public_pem: str, value: str) -> str:
     return base64.b64encode(ciphertext).decode("ascii")
 
 
+def first_ssid(base_url: str = DEFAULT_URL, timeout: float = 15.0) -> str:
+    """Первый непустой SSID из ``/ssid``.
+
+    Нужен как заглушка для проводного режима: Хаб с ``wifi_type: "NONE"``
+    к этому SSID не подключается, но пустую строку не принимает
+    (``WIFI_SSID_NOT_FOUND``).
+    """
+    data = http_json(base_url.rstrip("/") + "/ssid", timeout=timeout)
+    for item in data.get("ssid", []) or []:
+        name = str(item.get("ssid", "")).strip()
+        if name:
+            return name
+    raise ApError("в /ssid нет ни одной сети; укажите --ssid вручную")
+
+
 def build_connect_body(
     crypto_key: str,
     ssid: str,
@@ -102,18 +117,25 @@ def build_connect_body(
     token: str = DEFAULT_TOKEN,
     wired: bool = False,
 ) -> dict:
-    """Собирает тело ``/connect``.
+    """Собирает тело ``/connect`` (G-073).
 
-    Пароль и токен всегда шифруются ключом из ``/info``. В проводном режиме
-    SSID пустой, а ``wifi_type = 4`` («скрытая сеть») — именно так приложение
-    помечает «работать по уже поднятому Ethernet». Без ``wifi_type`` прошивка
-    подставляет 3 и пытается искать Wi-Fi, отвечая ``WIFI_SSID_NOT_FOUND``.
+    Пароль и токен всегда шифруются ключом из ``/info`` (RSA/PKCS1 v1.5).
+
+    Проводной режим — это ``wifi_type: "NONE"`` и ``stop_access_point: true``.
+    ``ssid`` обязан быть непустым, но служит только заглушкой: с ``"NONE"``
+    Хаб к нему не подключается, а гасит AP и остаётся на Ethernet. Пустой
+    ``ssid`` прошивка отвергает с ``WIFI_SSID_NOT_FOUND``. Числовой
+    ``wifi_type: 4`` (старая версия этого файла) тоже не работает.
     """
+    if wired and not ssid:
+        raise ApError("для проводного режима нужен непустой ssid-заглушка")
     body: dict = {
-        "ssid": "" if wired else ssid,
+        "ssid": ssid,
         "password": encrypt_field(crypto_key, "" if wired else password),
-        "wifi_type": 4 if wired else 2,
+        "wifi_type": "NONE" if wired else ("WPA" if password else "OPEN"),
         "xtoken_code": encrypt_field(crypto_key, token),
+        "hidden_ssid": False,
+        "stop_access_point": True,
     }
     return body
 
@@ -131,6 +153,8 @@ def connect(
     info = get_info(base)
     if "crypto_key" not in info:
         raise ApError(f"/info без crypto_key: {info}")
+    if wired and not ssid:
+        ssid = first_ssid(base)
     body = build_connect_body(info["crypto_key"], ssid, password, token, wired)
     answer = http_json(base + "/connect", payload=body, timeout=timeout)
     return info, answer
@@ -150,13 +174,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Подключить Яндекс-устройство к Wi-Fi через AP HTTP (firstrund)",
     )
-    ap.add_argument("--ssid", default="", help="имя Wi-Fi сети (для проводного режима не нужно)")
+    ap.add_argument("--ssid", default="",
+                    help="имя Wi-Fi сети; для --wired — необязательная заглушка")
     ap.add_argument("--password", default="", help="пароль Wi-Fi (для открытой сети пустой)")
     ap.add_argument("--token", default=DEFAULT_TOKEN,
                     help="токен активации; устройство его не проверяет")
     ap.add_argument("--url", default=DEFAULT_URL, help=f"адрес устройства (по умолчанию {DEFAULT_URL})")
     ap.add_argument("--wired", action="store_true",
-                    help="проводной режим: не отправлять Wi-Fi-креды")
+                    help="проводной режим: wifi_type=NONE, Хаб гасит AP и уходит на Ethernet")
     ap.add_argument("--info", action="store_true", help="только показать /info и выйти")
     ap.add_argument("--timeout", type=float, default=30.0,
                     help="таймаут /connect, с (по умолчанию 30)")

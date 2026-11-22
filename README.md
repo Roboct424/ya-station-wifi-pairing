@@ -47,8 +47,7 @@ POST /connect   → {"ssid": "...",
   (OAEP устройство не принимает);
 - токен активации на шаге Wi-Fi **не проверяется** — подходит любая строка,
   облако не нужно;
-- проводной режим: `{"ssid": "", "xtoken_code": ...}` без пароля — устройство
-  использует Ethernet;
+- проводной режим — отдельный набор полей, см. раздел ниже;
 - часть устройств умеет только 2.4 ГГц: на 5 ГГц ответ
   `WIFI_SSID_NOT_FOUND`.
 
@@ -56,6 +55,68 @@ POST /connect   → {"ssid": "...",
 Инструменты: [`tools/ap_wifi.py`](tools/ap_wifi.py) (CLI),
 [`tools/ap_wifi_gui.py`](tools/ap_wifi_gui.py) (GUI),
 [`tools/test_ap_wifi.py`](tools/test_ap_wifi.py) (mock-тест).
+
+### Проводной режим (Ethernet)
+
+Проводной режим — это **не** `ssid: ""` и **не** `wifi_type: 4`. Такие
+запросы прошивка отвергает с `WIFI_SSID_NOT_FOUND error_code 1` или
+`Keymaster TA error -1000`. Рабочее тело (проверено на Хабе
+`0.18.1.7...factory`, `device_id S006NQ20034ZFW`):
+
+```json
+{
+  "ssid": "Home",
+  "password": "<base64(RSA_PKCS1(""))>",
+  "xtoken_code": "<base64(RSA_PKCS1("localpair0000000"))>",
+  "hidden_ssid": false,
+  "stop_access_point": true,
+  "wifi_type": "NONE"
+}
+```
+
+Правила:
+
+- `wifi_type` — **строка** `"NONE"` (не число `4`). Именно она означает
+  «Wi-Fi не нужен, работать по уже поднятому Ethernet».
+- `ssid` обязан быть **непустым**, но служит только заглушкой: с `"NONE"`
+  Хаб к нему не подключается. Удобно брать текущую домашнюю сеть или первый
+  SSID из `GET /ssid`. Пустая строка → `WIFI_SSID_NOT_FOUND`.
+- `password` — RSA/PKCS#1 v1.5 от пустой строки (не опускать поле).
+- `xtoken_code` — RSA/PKCS#1 v1.5 от любой строки; на этом шаге не проверяется.
+- `stop_access_point: true` — Хаб сразу гасит AP и HTTP-сервер.
+- `hidden_ssid: false` — для проводного режима.
+
+Ответ:
+
+```json
+{"has_critical_update": false, "status": "ok"}
+```
+
+После этого в логе Хаба (`maind.log`):
+
+```text
+Connect response: {"has_critical_update":false,"status":"ok"}
+Access point and HTTP server are stopped
+Executing /system/vendor/quasar/stopap.sh
+```
+
+Хаб остаётся на `eth0` (DHCP/статика), `wlan0` в `wpa_state=INACTIVE`,
+`adbd` включается по конфигу `adbd.network=true`. Запрос можно отправлять
+**по кабелю** на `http://<ip-хаба>:8080`, пока он в режиме AP — телефон и
+приложение не нужны.
+
+```bash
+# по точке доступа Хаба
+python tools/ap_wifi.py --wired
+python tools/ap_wifi.py --wired --ssid Home
+
+# по Ethernet (Хаб в режиме AP, 8080 доступен на eth0)
+python tools/ap_wifi.py --wired --ssid Home --url http://192.168.137.234:8080
+```
+
+`--wired` без `--ssid` сам берёт первый SSID из `/ssid` как заглушку.
+Если Хаб уже сконфигурирован, он может закрыть AP через несколько секунд
+после старта — отправляйте запрос сразу, как откроется `8080`.
 
 ### Почему не Bluetooth
 
@@ -209,14 +270,55 @@ POST /connect   → {"ssid": "...",
   from `/info` (OAEP is rejected);
 - the activation token is **not validated** during the Wi-Fi step — any string
   works, no cloud involved;
-- wired mode: `{"ssid": "", "xtoken_code": ...}` without a password — the
-  device uses Ethernet;
+- wired mode is a separate payload, see below;
 - some devices are 2.4 GHz only: a 5 GHz AP returns `WIFI_SSID_NOT_FOUND`.
 
 Details: [`docs/05-ap-http.md`](docs/05-ap-http.md).
 Tools: [`tools/ap_wifi.py`](tools/ap_wifi.py) (CLI),
 [`tools/ap_wifi_gui.py`](tools/ap_wifi_gui.py) (GUI),
 [`tools/test_ap_wifi.py`](tools/test_ap_wifi.py) (mock test).
+
+### Wired mode (Ethernet)
+
+`ssid: ""` and numeric `wifi_type: 4` are **wrong** — the firmware returns
+`WIFI_SSID_NOT_FOUND error_code 1`. The working body (tested on Hub
+`0.18.1.7...factory`, `device_id S006NQ20034ZFW`) is:
+
+```json
+{
+  "ssid": "Home",
+  "password": "<base64(RSA_PKCS1(""))>",
+  "xtoken_code": "<base64(RSA_PKCS1("localpair0000000"))>",
+  "hidden_ssid": false,
+  "stop_access_point": true,
+  "wifi_type": "NONE"
+}
+```
+
+- `wifi_type` is the **string `"NONE"`**, not the number `4`.
+- `ssid` must be **non-empty**, but it is only a placeholder: with `"NONE"`
+  the Hub does not join it. Use the current home SSID or the first entry from
+  `GET /ssid`. An empty `ssid` produces `WIFI_SSID_NOT_FOUND`.
+- `password` is RSA/PKCS#1 v1.5 of an empty string; keep the field.
+- `xtoken_code` is RSA/PKCS#1 v1.5 of any string.
+- `stop_access_point: true` makes the Hub stop the AP and HTTP server.
+
+Response:
+
+```json
+{"has_critical_update": false, "status": "ok"}
+```
+
+`maind.log` then shows `Connect response: ...`, `Access point and HTTP server
+are stopped`, and `stopap.sh`. The Hub stays on `eth0`, `wlan0` becomes
+`INACTIVE`, and `adbd` is enabled. The request may be sent over the cable to
+`http://<hub-ip>:8080` while the Hub is in AP mode.
+
+```bash
+python tools/ap_wifi.py --wired                 # first SSID from /ssid
+python tools/ap_wifi.py --wired --ssid Home
+python tools/ap_wifi.py --wired --ssid Home --url http://192.168.137.234:8080
+```
 
 ### Why not Bluetooth
 

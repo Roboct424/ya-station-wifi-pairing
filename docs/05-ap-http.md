@@ -93,17 +93,53 @@
 
 ## Проводной режим (Ethernet)
 
-Если устройство подключено кабелем и у него есть интернет, Wi-Fi-креды можно
-не передавать:
+Если устройство уже подключено кабелем, Wi-Fi-креды не нужны, но запрос
+должен быть **строго таким** (проверено на прошивке `0.18.1.7...factory`):
 
 ```json
-{"ssid": "", "xtoken_code": "<base64(RSA_PKCS1(токен))>"}
+{
+  "ssid": "Home",
+  "password": "<base64(RSA_PKCS1(""))>",
+  "xtoken_code": "<base64(RSA_PKCS1("localpair0000000"))>",
+  "hidden_ssid": false,
+  "stop_access_point": true,
+  "wifi_type": "NONE"
+}
 ```
 
-Устройство уйдёт в состояние `connecting_to_network` и будет использовать
-Ethernet. В прошивке это отдельная ветка (`ConnectionType.ETHERNET`,
-`SetupEndpoint.MissingWifiCredentials`); если интернета по кабелю нет, оно
-проиграет `activation_no_network_in_ethernet.wav`.
+- `wifi_type` — **строка `"NONE"`**, не число `4` и не `2`.
+- `ssid` — **обязательно непустой**, но это только заглушка. С `"NONE"`
+  устройство к нему не подключается. Пустой `ssid` даёт
+  `WIFI_SSID_NOT_FOUND error_code 1`. Берите текущую домашнюю сеть или
+  первый SSID из `GET /ssid`.
+- `password` — RSA/PKCS#1 v1.5 от пустой строки (поле не опускать).
+- `xtoken_code` — RSA/PKCS#1 v1.5 от любой строки; на шаге Wi-Fi не
+  проверяется.
+- `stop_access_point: true` — сразу погасить AP и HTTP-сервер.
+- `hidden_ssid: false`.
+
+Ответ:
+
+```json
+{"has_critical_update": false, "status": "ok"}
+```
+
+После этого `maind.log` пишет:
+
+```text
+Connect response: {"has_critical_update":false,"status":"ok"}
+Access point and HTTP server are stopped
+Executing /system/vendor/quasar/stopap.sh
+```
+
+Устройство остаётся на `eth0`, `wlan0` — `wpa_state=INACTIVE`, `adbd`
+включается из конфига `adbd.network=true`. Запрос можно отправлять по
+кабелю на `http://<ip>:8080`, пока устройство в режиме AP.
+
+**Что не работает:** `{"ssid": "", ...}` → `WIFI_SSID_NOT_FOUND`;
+`wifi_type: 4` числом → то же; OAEP вместо PKCS#1 → `Keymaster TA error
+-1000`. Эти варианты остались в старых версиях `tools/ap_wifi.py` и
+`docs/` — они неверны.
 
 ## Пример на Python
 
