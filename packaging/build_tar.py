@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 NAME = f"ya-station-wifi-pairing-{VERSION}"
 
 INCLUDE_DIRS = [

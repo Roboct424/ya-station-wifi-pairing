@@ -190,15 +190,15 @@ CI (`.github/workflows/build.yml`) собирает Windows/Linux/macOS
 ### Релизы
 
 Готовые файлы: [`releases/latest`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/latest)
-(текущий — [`v1.2.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.2.0)).
+(текущий — [`v1.3.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.3.0)).
 
 * `StationPairing.apk` — Android-приложение: звук + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: звук + AP HTTP (CLI, один файл)
 * `StationPairingGUI.exe` — Windows: звук + AP HTTP (GUI, один файл)
 * `StationPairing-linux-x86_64` / `StationPairingGUI-linux-x86_64` — Linux
 * `StationWiFiPairing.exe` — старая Windows-сборка (только звук)
-* `ya-station-wifi-pairing_1.2.0_all.deb` — Debian/Ubuntu пакет
-* `ya-station-wifi-pairing-1.2.0.tar.gz` — исходники для Linux/macOS
+* `ya-station-wifi-pairing_1.3.0_all.deb` — Debian/Ubuntu пакет
+* `ya-station-wifi-pairing-1.3.0.tar.gz` — исходники для Linux/macOS
   (сборка: `bash packaging/build_unix.sh`)
 
 ### Проверка
@@ -392,15 +392,15 @@ Details: [`docs/03-practice.md`](docs/03-practice.md).
 ### Releases
 
 Prebuilt files: [`releases/latest`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/latest)
-(current: [`v1.2.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.2.0)).
+(current: [`v1.3.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.3.0)).
 
 * `StationPairing.apk` — Android application: sound + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: sound + AP HTTP (CLI, single file)
 * `StationPairingGUI.exe` — Windows: sound + AP HTTP (GUI, single file)
 * `StationPairing-linux-x86_64` / `StationPairingGUI-linux-x86_64` — Linux
 * `StationWiFiPairing.exe` — older Windows build (sound only)
-* `ya-station-wifi-pairing_1.2.0_all.deb` — Debian/Ubuntu package
-* `ya-station-wifi-pairing-1.2.0.tar.gz` — sources for Linux/macOS
+* `ya-station-wifi-pairing_1.3.0_all.deb` — Debian/Ubuntu package
+* `ya-station-wifi-pairing-1.3.0.tar.gz` — sources for Linux/macOS
   (build: `bash packaging/build_unix.sh`)
 
 ### Self-test

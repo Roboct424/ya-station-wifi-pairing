@@ -15,7 +15,7 @@ import tarfile
 import time
 from pathlib import Path
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 PKG = "ya-station-wifi-pairing"
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
