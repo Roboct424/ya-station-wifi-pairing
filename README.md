@@ -80,7 +80,8 @@ POST /connect   → {"ssid": "...",
   «Wi-Fi не нужен, работать по уже поднятому Ethernet».
 - `ssid` обязан быть **непустым**, но служит только заглушкой: с `"NONE"`
   Хаб к нему не подключается. Удобно брать текущую домашнюю сеть или первый
-  SSID из `GET /ssid`. Пустая строка → `WIFI_SSID_NOT_FOUND`.
+  SSID из `GET /ssid`. Пустая строка → `WIFI_SSID_NOT_FOUND`. Если `/ssid`
+  пуст или недоступен, подставляется заглушка `wired`.
 - `password` — RSA/PKCS#1 v1.5 от пустой строки (не опускать поле).
 - `xtoken_code` — RSA/PKCS#1 v1.5 от любой строки; на этом шаге не проверяется.
 - `stop_access_point: true` — Хаб сразу гасит AP и HTTP-сервер.
@@ -190,15 +191,15 @@ CI (`.github/workflows/build.yml`) собирает Windows/Linux/macOS
 ### Релизы
 
 Готовые файлы: [`releases/latest`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/latest)
-(текущий — [`v1.3.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.3.0)).
+(текущий — [`v1.3.1`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.3.1)).
 
 * `StationPairing.apk` — Android-приложение: звук + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: звук + AP HTTP (CLI, один файл)
 * `StationPairingGUI.exe` — Windows: звук + AP HTTP (GUI, один файл)
 * `StationPairing-linux-x86_64` / `StationPairingGUI-linux-x86_64` — Linux
 * `StationWiFiPairing.exe` — старая Windows-сборка (только звук)
-* `ya-station-wifi-pairing_1.3.0_all.deb` — Debian/Ubuntu пакет
-* `ya-station-wifi-pairing-1.3.0.tar.gz` — исходники для Linux/macOS
+* `ya-station-wifi-pairing_1.3.1_all.deb` — Debian/Ubuntu пакет
+* `ya-station-wifi-pairing-1.3.1.tar.gz` — исходники для Linux/macOS
   (сборка: `bash packaging/build_unix.sh`)
 
 ### Проверка
@@ -298,7 +299,8 @@ Tools: [`tools/ap_wifi.py`](tools/ap_wifi.py) (CLI),
 - `wifi_type` is the **string `"NONE"`**, not the number `4`.
 - `ssid` must be **non-empty**, but it is only a placeholder: with `"NONE"`
   the Hub does not join it. Use the current home SSID or the first entry from
-  `GET /ssid`. An empty `ssid` produces `WIFI_SSID_NOT_FOUND`.
+  `GET /ssid`. An empty `ssid` produces `WIFI_SSID_NOT_FOUND`. If `/ssid` is
+  empty or unavailable, the fallback placeholder is `wired`.
 - `password` is RSA/PKCS#1 v1.5 of an empty string; keep the field.
 - `xtoken_code` is RSA/PKCS#1 v1.5 of any string.
 - `stop_access_point: true` makes the Hub stop the AP and HTTP server.
@@ -392,15 +394,15 @@ Details: [`docs/03-practice.md`](docs/03-practice.md).
 ### Releases
 
 Prebuilt files: [`releases/latest`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/latest)
-(current: [`v1.3.0`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.3.0)).
+(current: [`v1.3.1`](https://github.com/Roboct424/ya-station-wifi-pairing/releases/tag/v1.3.1)).
 
 * `StationPairing.apk` — Android application: sound + Wi-Fi AP HTTP
 * `StationPairing.exe` — Windows: sound + AP HTTP (CLI, single file)
 * `StationPairingGUI.exe` — Windows: sound + AP HTTP (GUI, single file)
 * `StationPairing-linux-x86_64` / `StationPairingGUI-linux-x86_64` — Linux
 * `StationWiFiPairing.exe` — older Windows build (sound only)
-* `ya-station-wifi-pairing_1.3.0_all.deb` — Debian/Ubuntu package
-* `ya-station-wifi-pairing-1.3.0.tar.gz` — sources for Linux/macOS
+* `ya-station-wifi-pairing_1.3.1_all.deb` — Debian/Ubuntu package
+* `ya-station-wifi-pairing-1.3.1.tar.gz` — sources for Linux/macOS
   (build: `bash packaging/build_unix.sh`)
 
 ### Self-test

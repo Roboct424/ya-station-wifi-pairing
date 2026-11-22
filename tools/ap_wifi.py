@@ -40,6 +40,8 @@ except Exception as exc:  # pragma: no cover
 
 DEFAULT_URL = "http://192.168.43.1:8080"
 DEFAULT_TOKEN = "localpair0000000"
+#: Заглушка SSID для проводного режима, если /ssid не вернул сетей.
+WIRED_SSID_PLACEHOLDER = "wired"
 
 
 class ApError(RuntimeError):
@@ -100,14 +102,19 @@ def first_ssid(base_url: str = DEFAULT_URL, timeout: float = 15.0) -> str:
 
     Нужен как заглушка для проводного режима: Хаб с ``wifi_type: "NONE"``
     к этому SSID не подключается, но пустую строку не принимает
-    (``WIFI_SSID_NOT_FOUND``).
+    (``WIFI_SSID_NOT_FOUND``). Если сетей нет или ``/ssid`` недоступен,
+    возвращается собственная заглушка ``WIRED_SSID_PLACEHOLDER`` —
+    проводной режим не должен падать из-за пустого эфира.
     """
-    data = http_json(base_url.rstrip("/") + "/ssid", timeout=timeout)
+    try:
+        data = http_json(base_url.rstrip("/") + "/ssid", timeout=timeout)
+    except Exception:  # noqa: BLE001
+        return WIRED_SSID_PLACEHOLDER
     for item in data.get("ssid", []) or []:
         name = str(item.get("ssid", "")).strip()
         if name:
             return name
-    raise ApError("в /ssid нет ни одной сети; укажите --ssid вручную")
+    return WIRED_SSID_PLACEHOLDER
 
 
 def build_connect_body(

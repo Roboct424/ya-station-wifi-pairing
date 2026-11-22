@@ -26,6 +26,7 @@ PUBLIC_PEM = PRIVATE.public_key().public_bytes(
 ).decode("utf-8")
 
 SEEN: dict = {}
+EMPTY_SSID = False
 
 
 def decrypt(value: str) -> str:
@@ -54,7 +55,7 @@ class Handler(BaseHTTPRequestHandler):
                 "version": "test",
             })
         elif self.path == "/ssid":
-            self._json({"ssid": [
+            self._json({"ssid": [] if EMPTY_SSID else [
                 {"ssid": "Home", "level": -40, "secure": True},
                 {"ssid": "Other", "level": -70, "secure": True},
             ]})
@@ -75,6 +76,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    global EMPTY_SSID
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -114,6 +116,15 @@ def main() -> int:
             print("FAIL: wired stop_access_point"); failures += 1
         if SEEN.get("token") != ap_wifi.DEFAULT_TOKEN:
             print("FAIL: wired token"); failures += 1
+
+        # Пустой эфир: /ssid ничего не вернул — должна подставиться заглушка.
+        EMPTY_SSID = True
+        _, answer = ap_wifi.connect(url, wired=True)
+        print("wired empty:", answer, "seen:", SEEN)
+        if SEEN.get("ssid") != ap_wifi.WIRED_SSID_PLACEHOLDER:
+            print("FAIL: wired placeholder"); failures += 1
+        if SEEN.get("wifi_type") != "NONE" or SEEN.get("stop_access_point") is not True:
+            print("FAIL: wired empty body"); failures += 1
     finally:
         server.shutdown()
         server.server_close()
