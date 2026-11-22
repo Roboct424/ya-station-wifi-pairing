@@ -143,6 +143,34 @@ Executing /system/vendor/quasar/stopap.sh
 -1000`. Эти варианты остались в старых версиях `tools/ap_wifi.py` и
 `docs/` — они неверны.
 
+### Почему `/connect` отвечает `NO_INTERNET`
+
+`/connect` — это не только приём Wi-Fi. Перед применением настроек
+станция проверяет «облако» и делает запросы:
+
+```text
+http://scbh.yandex.net/generate_204          → нужен 204 + Date
+https://oauth.yandex.ru/token                → нужен OAuth-JSON
+https://quasar.yandex.net/register|...       → 200
+```
+
+Если на `/token` вернуть `{"status":"ok"}` вместо токена, станция
+считает, что интернета нет, и отвечает `error NO_INTERNET`, хотя 204
+отдаётся исправно. Минимальный OAuth-ответ:
+
+```json
+{"access_token": "<jwt>", "token_type": "bearer", "expires_in": 31536000,
+ "refresh_token": "<jwt>", "scope": "quasar"}
+```
+
+Сервер «облака» должен уметь TLS 1.2 (TLS 1.3 старый клиент станции
+разбирает с `decode_error`) и отдавать цепочку без склеенных PEM-блоков.
+
+На стороне ноутбука DHCP дойдёт до станции, только если сетевой профиль
+Ethernet — «Частная», а в брандмауэре разрешён входящий UDP 67/68.
+Иначе станция уходит в `169.254.*`, и `/connect` тоже вернёт
+`NO_INTERNET`.
+
 ## Пример на Python
 
 ```python
